@@ -12,7 +12,7 @@ RUN pip install pandas
 RUN pip install networkx 
 RUN pip install ipython 
 
-RUN echo "export LANG=en_US.utf8" >> /etc/profile
+RUN echo "export LANG=en_US.utf8" >> /etc/profile.d/lang.sh
 
 RUN adduser -m vitaly
 RUN echo 'vitaly:vitaly' | chpasswd

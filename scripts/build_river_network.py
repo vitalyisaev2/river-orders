@@ -9,12 +9,20 @@ import numpy as np
 if __debug__:
     df = None
 
+def indexing(df):
+    pass
+
+
 def fill_repeats(df):
+    """
+    Заполняет знаки повтора
+    """
     def _fill(col):
         df.loc[df[col]=='»', col] = np.nan
         df[col] = df[col].ffill()
 
     map(_fill, ('river_dest','side'))
+
 
 def main():
     if __debug__:
@@ -22,7 +30,7 @@ def main():
     fname = sys.argv[1]
     df = pd.read_csv(fname)
 
-    fill_repeats(df)
+    # fill_repeats(df)
 
 if __name__ == "__main__":
     main()
