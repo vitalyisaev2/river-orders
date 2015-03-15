@@ -1,4 +1,4 @@
-river_id;river_name;river_dest;side;dest_from_end;length;watershed_area;10km_trib_amount;10km_trib_sum_len;lakes_amount;lakes_sum_area;table3_id;;;;;
+id;river_name;river_dest;side;dest_from_end;length;watershed_area;10km_trib_amount;10km_trib_sum_len;lakes_amount;lakes_sum_area;table3_id;;;;;
 Бассейн р. Бия;;;;;;;;;;;
 1;Бия;Обь;(пр);3647;301;37000;170;313;2753;398;1-13
 2;Юрток (Лев. Юрток);Бия;»;299;17;;39;52;;;
