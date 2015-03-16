@@ -16,4 +16,6 @@ RUN echo "export LANG=en_US.utf8" >> /etc/profile.d/lang.sh
 
 RUN adduser -m vitaly
 RUN echo 'vitaly:vitaly' | chpasswd
+VOLUME ["/home/vitaly/project"]
+WORKDIR /home/vitaly/project
 USER vitaly
