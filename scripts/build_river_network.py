@@ -46,6 +46,8 @@ def prepare(df):
 
 def construct(df):
     stack = []
+    river_last = None
+    dest_last = None
     for index, row in df.iterrows():
         river_curr = row['river_main_name']
         dest_curr = row['river_dest']
