@@ -27,13 +27,13 @@ def prepare(df):
 
     # Fill downwards "»" values
     def _fill(col):
-        df.loc[df[col]=='»', col] = np.nan
+        df.loc[df[col] == '»', col] = np.nan
         df[col] = df[col].ffill()
-    map(_fill, ('river_dest','side'))
+    map(_fill, ('river_dest', 'side'))
 
     # Short names
     def _get_main_name(name):
-        assert(all(c in name for c in ('(',')')) or all(c not in name for c in ('(',')')))
+        assert(all(c in name for c in ('(', ')')) or all(c not in name for c in ('(', ')')))
         if "(" in name:
             return name.split("(")[0].strip()
         else:
@@ -46,25 +46,29 @@ def prepare(df):
 
 def construct(df):
     stack = []
-    river_last = None
-    dest_last = None
-    for index, row in df.iterrows():
-        river_curr = row['river_main_name']
-        dest_curr = row['river_dest']
+    #for index, row in df.iterrows():
+    for index, row in list(df.iterrows())[:20]:
+        river = row['river_main_name']
+        dest = row['river_dest']
+        # start point
         if len(stack) == 0:
             stack.append(dest)
-        else:
 
+        stack.append(river)
+        print index[1], len(stack), "->".join([s.decode('utf8') for s in stack])
+        if dest == stack[-2]:
+            stack.pop()
 
 
 def main():
-    if __debug__:
-        global _df
     fname = sys.argv[1]
     df = pd.read_csv(fname, sep=';')
-
     df = prepare(df)
-    _df = df
+    construct(df)
+
+    if __debug__:
+        global _df
+        _df = df
 
 if __name__ == "__main__":
     main()
