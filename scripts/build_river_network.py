@@ -12,6 +12,15 @@ pd.set_option('display.width', 160)
 if __debug__:
     _df = None
 
+class RiverNotFoundInStack(Exception):
+    def __init__(self, stack, river):
+        self.stack = stack
+        self.river = river
+
+    def __str__(self):
+        return u"'{}' not in {}".format(self.dest, self.stack)
+
+# TODO: to many workarounds due to unicode. need to port to Python3
 class RiverStack(list):
     patterns = [
         ur'^протока р. ([а-яА-Я-]+)$',
@@ -35,21 +44,27 @@ class RiverStack(list):
         return self.rivers.pop()
 
     def __contains__(self, dest):
-        for river in self.rivers:
-            if dest == river:
-                return True
+        if isinstance(dest, unicode):
+            rivers = [r.decode('utf8') for r in self.rivers]
+        else:
+            rivers = self.rivers
+        if dest in rivers:
+            return True
+        else:
+            print u"'{}' not in {}".format(dest.decode('utf8'), str(self).decode('utf8'))
+            return False
 
+    def find_similar(self, dest):
         unicode_rivers = [r.decode('utf8') for r in self.rivers]
 
         for pattern in self.patterns:
             m = re.search(pattern, dest.decode('utf8'))
             if m:
                 name = m.groups()[0]
-                #exists = name in self.rivers
                 exists = name in unicode_rivers
                 print(u"\t'{}' -> '{}'; exists: {}".format(pattern, name, exists))
                 if exists:
-                    return True
+                    return name
 
 
 def prepare(df):
@@ -96,10 +111,19 @@ def construct(df):
             stack.push(dest)
             stack.push(river)
         else:
-            assert dest in stack, "'{}' not in {}".format(dest, stack)
+            if not dest in stack:
+                similar = stack.find_similar(dest)
+                if __debug__:
+                    print u"\tSuggesting '{}' instead of '{}'".format(similar, dest.decode('utf8'))
+                if not similar in stack:
+                    raise RiverNotFoundInStack(stack, dest)
+                else:
+                    dest = similar
+
             while dest != stack[-1]:
                 print stack
                 stack.pop()
+
             stack.push(river)
 
         print index[1], len(stack), stack
