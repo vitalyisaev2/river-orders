@@ -4,6 +4,8 @@
 import sys
 import re
 import itertools
+import traceback
+import pprint
 
 import pandas as pd
 import numpy as np
@@ -13,13 +15,8 @@ pd.set_option('display.width', 160)
 if __debug__:
     _df = None
 
-class RiverNotFoundInStack(Exception):
-    def __init__(self, stack, river):
-        self.stack = stack
-        self.river = river
 
-
-class RiverSuggestion(object):
+class NameSuggestion(object):
     _substrings = [
         r'^протока р. ([а-яА-Я-]+)$',
     ]
@@ -40,12 +37,9 @@ class RiverSuggestion(object):
 
 
 class RiverStack(list):
-    #patterns = [
-        #r'^протока р. ([а-яА-Я-]+)$',
-    #]
     def __init__(self):
         self.rivers = []
-        self.rs = RiverSuggestion()
+        self.ns = NameSuggestion()
 
     def __str__(self):
         return "<-".join(self.rivers)
@@ -64,18 +58,81 @@ class RiverStack(list):
 
     def __contains__(self, dest):
         if dest in self.rivers:
+            #print("\t'{}' in {}".format(dest, str(self)))
             return True
         else:
-            print("\t'{}' not in {}".format(dest, str(self)))
+            #print("\t'{}' not in {}".format(dest, str(self)))
             return False
 
     def find_similar(self, dest):
-        for name in self.rs.suggest(dest):
+        for name in self.ns.suggest(dest):
             exists = name in self.rivers
             print("\t'{}' <-> '{}'; exists: {}".format(name, dest, exists))
             if exists:
                 print("\tSuggesting '{}' instead of '{}'".format(name, dest))
                 return name
+
+
+class RiverSystems(object):
+    def __init__(self):
+        self.roots = {}
+
+    def __len__(self):
+        return len(self.roots)
+
+    def __str__(self):
+        return pprint.pformat(self.roots, indent=4)
+
+    def add_river(self, river, dest):
+        if len(self) == 0 or dest == 'теряется':
+            self._add_root(river, dest)
+        else:
+            self._add_tributary(river, dest)
+
+    def _create_root(self, root):
+        print("Creating new root for '{}'...".format(root))
+        self.roots[root] = RiverStack()
+        self.roots[root].push(root)
+        self.active_root = root
+
+    def _add_root(self, river, dest):
+        if dest != "теряется":
+            self._create_root(dest)
+            self.roots[dest].push(river)
+        else:
+            self._create_root(river)
+
+    def _add_tributary(self, river, dest):
+        self.active_root = None
+        target_stack = None
+
+        # Good situation
+        for root, stack in self.roots.items():
+            #print("Checking root: {}".format(root))
+            if dest in stack:
+                target_stack = stack
+                self.active_root = root
+
+        # Emergency situation - river was not found in any stack
+        if not target_stack:
+            for root, stack in self.roots.items():
+                similar = stack.find_similar(dest)
+                if similar:
+                    dest = similar
+                    target_stack = stack
+                    self.active_root = root
+
+        if not target_stack:
+            raise Exception("Destination river '{}' wasn't found anywhere".format(dest))
+
+        else:
+            while dest != target_stack[-1]:
+                target_stack.pop()
+            target_stack.push(river)
+
+    @property
+    def active_system(self):
+        return self.active_root, self.roots[self.active_root]
 
 
 def prepare(df):
@@ -113,29 +170,22 @@ def prepare(df):
 
 
 def construct(df):
-    stack = RiverStack()
+    rs = RiverSystems()
+
     for index, row in df.iterrows():
         river = row['river_main_name']
         dest = row['river_dest']
 
-        # start point
-        if len(stack) == 0:
-            stack.push(dest)
-            stack.push(river)
+        try:
+            rs.add_river(river, dest)
+        except Exception:
+            print(traceback.format_exc())
+            print(rs)
+            sys.exit(1)
         else:
-            if not dest in stack:
-                similar = stack.find_similar(dest)
-                if not similar:
-                    raise RiverNotFoundInStack(stack, dest)
-                else:
-                    dest = similar
+            print(index[1], *rs.active_system)
 
-            while dest != stack[-1]:
-                stack.pop()
-
-            stack.push(river)
-
-        print(index[1], len(stack), stack)
+    return rs
 
 
 def main():
