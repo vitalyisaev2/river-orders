@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 # -*- coding: utf8 -*-
 
 import sys
@@ -17,13 +17,11 @@ class RiverNotFoundInStack(Exception):
         self.stack = stack
         self.river = river
 
-    def __str__(self):
-        return u"'{}' not in {}".format(self.dest, self.stack)
-
 # TODO: to many workarounds due to unicode. need to port to Python3
 class RiverStack(list):
     patterns = [
-        ur'^протока р. ([а-яА-Я-]+)$',
+        #ur'^протока р. ([а-яА-Я-]+)$',
+        r'^протока р. ([а-яА-Я-]+)$',
     ]
     def __init__(self):
         self.rivers = []
@@ -44,25 +42,19 @@ class RiverStack(list):
         return self.rivers.pop()
 
     def __contains__(self, dest):
-        if isinstance(dest, unicode):
-            rivers = [r.decode('utf8') for r in self.rivers]
-        else:
-            rivers = self.rivers
-        if dest in rivers:
+        if dest in self.rivers:
             return True
         else:
-            print u"'{}' not in {}".format(dest.decode('utf8'), str(self).decode('utf8'))
+            print("'{}' not in {}".format(dest, str(self)))
             return False
 
     def find_similar(self, dest):
-        unicode_rivers = [r.decode('utf8') for r in self.rivers]
-
         for pattern in self.patterns:
-            m = re.search(pattern, dest.decode('utf8'))
+            m = re.search(pattern, dest)
             if m:
                 name = m.groups()[0]
-                exists = name in unicode_rivers
-                print(u"\t'{}' -> '{}'; exists: {}".format(pattern, name, exists))
+                exists = name in self.rivers
+                print("\t'{}' -> '{}'; exists: {}".format(pattern, name, exists))
                 if exists:
                     return name
 
@@ -84,7 +76,9 @@ def prepare(df):
     def _fill(col):
         df.loc[df[col] == '»', col] = np.nan
         df[col] = df[col].ffill()
-    map(_fill, ('river_dest', 'side'))
+
+    for col in ('river_dest', 'side'):
+        _fill(col)
 
     # Short names
     def _get_main_name(name):
@@ -102,7 +96,6 @@ def prepare(df):
 def construct(df):
     stack = RiverStack()
     for index, row in df.iterrows():
-    #for index, row in list(df.iterrows())[:20]:
         river = row['river_main_name']
         dest = row['river_dest']
 
@@ -114,19 +107,19 @@ def construct(df):
             if not dest in stack:
                 similar = stack.find_similar(dest)
                 if __debug__:
-                    print u"\tSuggesting '{}' instead of '{}'".format(similar, dest.decode('utf8'))
+                    print("\tSuggesting '{}' instead of '{}'".format(similar, dest))
                 if not similar in stack:
                     raise RiverNotFoundInStack(stack, dest)
                 else:
                     dest = similar
 
             while dest != stack[-1]:
-                print stack
+                #print(stack)
                 stack.pop()
 
             stack.push(river)
 
-        print index[1], len(stack), stack
+        print(index[1], len(stack), stack)
 
 
 def main():
