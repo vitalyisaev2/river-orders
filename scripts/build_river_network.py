@@ -6,6 +6,7 @@ import re
 import itertools
 import traceback
 import pprint
+import collections
 
 import pandas as pd
 import numpy as np
@@ -127,7 +128,8 @@ class RiverSystems(object):
         r'^оз.\s+([А-Я]{1}[а-яА-Я-]+)$',
     ]
     def __init__(self):
-        self.roots = {}
+        #self.roots = {}
+        self.roots = collections.OrderedDict()
         self.root_signs = list(map(re.compile, self._root_signs))
 
     def __len__(self):
@@ -190,7 +192,6 @@ class RiverSystems(object):
 
         else:
             while dest != target_stack[-1]:
-                #print("\t'{}' in {}: {}".format(target_stack[-1], dest.names, target_stack[-1] in dest.names))
                 target_stack.pop()
             target_stack.push(river)
 
@@ -221,14 +222,14 @@ def prepare(df):
         _fill(col)
 
     # Short names
-    def _get_main_name(name):
-        assert(all(c in name for c in ('(', ')')) or all(c not in name for c in ('(', ')')))
-        if "(" in name:
-            return name.split("(")[0].strip()
-        else:
-            return name
+    # def _get_main_name(name):
+    #     assert(all(c in name for c in ('(', ')')) or all(c not in name for c in ('(', ')')))
+    #     if "(" in name:
+    #         return name.split("(")[0].strip()
+    #     else:
+    #         return name
 
-    df.insert(0, 'river_main_name', df['river_full_name'].apply(_get_main_name))
+    # df.insert(0, 'river_main_name', df['river_full_name'].apply(_get_main_name))
 
     return df
 
@@ -237,7 +238,8 @@ def construct(df):
     rs = RiverSystems()
 
     for index, row in df.iterrows():
-        river = River(row['river_main_name'])
+        #river = River(row['river_main_name'])
+        river = River(row['river_full_name'])
         dest = River(row['river_dest'])
 
         try:
