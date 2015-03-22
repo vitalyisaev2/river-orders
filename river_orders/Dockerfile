@@ -12,6 +12,7 @@ RUN apt-get -y install python3-pandas
 
 RUN pip3 install networkx 
 RUN pip3 install ipython 
+RUN pip3 install ipdb 
 
 RUN locale-gen en_US.UTF-8
 ENV LANG en_US.UTF-8  
