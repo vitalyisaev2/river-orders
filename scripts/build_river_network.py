@@ -19,6 +19,8 @@ if __debug__:
 class NameSuggestion(object):
     _substrings = [
         r'^протока р. ([а-яА-Я-]+)$',
+        r'^(оз.\s+[а-яА-Я-]+)\s+\(зал.\s+[а-яА-Я-]+\)$',
+        r'^(оз.\s+[а-яА-Я-]+)\s+\([а-яА-Я-]+\s+залив\)$'
     ]
     _replacements = [
         (r"\.", ". ")
@@ -31,10 +33,14 @@ class NameSuggestion(object):
             map(lambda x: (re.compile(x[0]), x[1]), self._replacements))
 
     def suggest(self, river):
+        """
+        Provides the set of unique suggested names, according to the list with
+        regular expressions
+        """
         subs = (m.groups()[0] for m in map(lambda x: x.match(river), self.substrings) if m)
         repls = (r[0].sub(r[1], river) for r in self.replacements)
-        return itertools.chain(subs, repls)
-
+        gens = itertools.tee(itertools.chain(subs, repls))
+        return set(itertools.chain(gens[0], map(lambda x: x.strip(), gens[1])))
 
 class RiverStack(list):
     def __init__(self):
@@ -66,16 +72,25 @@ class RiverStack(list):
 
     def find_similar(self, dest):
         for name in self.ns.suggest(dest):
+            #print(name)
             exists = name in self.rivers
-            print("\t'{}' <-> '{}'; exists: {}".format(name, dest, exists))
+            print("\t'{}' <-> '{}'; exists in '{}': {}".format(name, dest, str(self), exists))
             if exists:
                 print("\tSuggesting '{}' instead of '{}'".format(name, dest))
                 return name
 
-
 class RiverSystems(object):
+    """
+    Several independent river systems can be discovered while parsing the
+    initial data. This class is trying to keep track of every of them.
+    """
+    _root_signs = [
+        r'^теряется$',
+        r'^оз.\s+([А-Я]{1}[а-яА-Я-]+)$',
+    ]
     def __init__(self):
         self.roots = {}
+        self.root_signs = list(map(re.compile, self._root_signs))
 
     def __len__(self):
         return len(self.roots)
@@ -84,7 +99,8 @@ class RiverSystems(object):
         return pprint.pformat(self.roots, indent=4)
 
     def add_river(self, river, dest):
-        if len(self) == 0 or dest == 'теряется':
+        if len(self) == 0 or any(p.match(dest) for p in self.root_signs):
+        #if len(self) == 0 or dest == 'теряется':
             self._add_root(river, dest)
         else:
             self._add_tributary(river, dest)
