@@ -3,6 +3,7 @@
 
 import sys
 import re
+import itertools
 
 import pandas as pd
 import numpy as np
@@ -17,14 +18,13 @@ class RiverNotFoundInStack(Exception):
         self.stack = stack
         self.river = river
 
-# TODO: to many workarounds due to unicode. need to port to Python3
 class RiverStack(list):
-    patterns = [
-        #ur'^протока р. ([а-яА-Я-]+)$',
-        r'^протока р. ([а-яА-Я-]+)$',
-    ]
+    #patterns = [
+        #r'^протока р. ([а-яА-Я-]+)$',
+    #]
     def __init__(self):
         self.rivers = []
+        self.rs = RiverSuggestion()
 
     def __str__(self):
         return "<-".join(self.rivers)
@@ -49,14 +49,31 @@ class RiverStack(list):
             return False
 
     def find_similar(self, dest):
-        for pattern in self.patterns:
-            m = re.search(pattern, dest)
-            if m:
-                name = m.groups()[0]
-                exists = name in self.rivers
-                print("\t'{}' -> '{}'; exists: {}".format(pattern, name, exists))
-                if exists:
-                    return name
+        for name in self.rs.suggest(dest):
+            exists = name in self.rivers
+            print("\t'{}' <-> '{}'; exists: {}".format(dest, name, exists))
+            if exists:
+                return name
+
+
+class RiverSuggestion(object):
+    _substrings = [
+        r'^протока р. ([а-яА-Я-]+)$',
+    ]
+    _replacements = [
+        (r"\.", ". ")
+    ]
+
+    def __init__(self):
+        self.substrings = list(
+            map(re.compile, self._substrings))
+        self.replacements = list(
+            map(lambda x: (re.compile(x[0]), x[1]), self._replacements))
+
+    def suggest(self, river):
+        subs = (m.groups()[0] for m in map(lambda x: x.match(river), self.substrings) if m)
+        repls = (r[0].sub(r[1], river) for r in self.replacements)
+        return itertools.chain(subs, repls)
 
 
 def prepare(df):
