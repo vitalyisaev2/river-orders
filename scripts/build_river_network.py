@@ -24,8 +24,12 @@ class River(object):
         self._name = _name
         self.names = [n.strip() for n in p.split(_name)]
 
+    @property
+    def name(self):
+        return self.names[0]
+
     def __str__(self):
-        return self._name
+        return self.name
 
     def __repr__(self):
         return str(self)
@@ -40,7 +44,7 @@ class River(object):
                 "Cannot compare River instance to {}".format(type(other)))
 
     def __hash__(self):
-        return self._name.__hash__()
+        return self.name.__hash__()
 
 
 class NameSuggestion(object):
@@ -88,7 +92,7 @@ class RiverStack(list):
     def refresh_namelist(f):
         def wrapper(self, *args):
             res = f(self, *args)
-            self.river_names = list(itertools.chain(*(r.names for r in self.rivers)))
+            self.river_names = [r.name for r in self.rivers]
             return res
         return wrapper
 
