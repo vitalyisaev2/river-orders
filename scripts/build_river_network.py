@@ -19,14 +19,21 @@ if __debug__:
 class River(object):
     _pattern = r'[,)(]{1}'
 
-    def __init__(self, _name):
+    def __init__(self, _name, index):
         p = re.compile(self._pattern)
         self._name = _name
-        self.names = [n.strip() for n in p.split(_name)]
+        self.names = list(filter(lambda x: len(x) > 0, [n.strip() for n in p.split(_name)]))
+
+        if _name == 'без названия':
+            self.indexed_name = 'без названия №{}'.format(index)
+            self.names.append(self.indexed_name)
 
     @property
     def name(self):
-        return self.names[0]
+        if hasattr(self, 'indexed_name'):
+            return self.indexed_name
+        else:
+            return self.names[0]
 
     def __str__(self):
         return self.name
@@ -65,7 +72,7 @@ class NameSuggestion(object):
 
     def suggest(self, river):
         """
-        Provides the set of unique suggested names, according to the list with
+        Provides the set of unique suggested names, according to the list of
         regular expressions
         """
         subs = (m.groups()[0] for name in river.names
@@ -75,6 +82,7 @@ class NameSuggestion(object):
         gens = itertools.tee(itertools.chain(subs, repls))
         return set(itertools.chain(gens[0], map(lambda x: x.strip(), gens[1])))
 
+
 class RiverStack(list):
     def __init__(self):
         self.rivers = []
@@ -82,6 +90,9 @@ class RiverStack(list):
 
     def __str__(self):
         return "<-".join(self.river_names)
+
+    def __repr__(self):
+        return str(self)
 
     def __getitem__(self, index):
         return self.rivers[index]
@@ -92,7 +103,8 @@ class RiverStack(list):
     def refresh_namelist(f):
         def wrapper(self, *args):
             res = f(self, *args)
-            self.river_names = [r.name for r in self.rivers]
+            #self.river_names = [r.name for r in self.rivers]
+            self.river_names = list(itertools.chain(*(r.names for r in self.rivers)))
             return res
         return wrapper
 
@@ -113,10 +125,10 @@ class RiverStack(list):
             return False
 
     def find_similar(self, dest):
-        river_names = list(itertools.chain(*(r.names for r in self.rivers)))
+        #river_names = list(itertools.chain(*(r.names for r in self.rivers)))
         for name in self.ns.suggest(dest):
-            exists = name in river_names
-            print("\t'{}' <-> '{}'; exists in '{}': {}".format(name, dest, str(self), exists))
+            exists = name in self.river_names
+            print("\t'{}' <-> '{}'; exists in '{}': {}".format(name, dest, self.river_names, exists))
             if exists:
                 print("\tSuggesting '{}' instead of '{}'".format(name, dest))
                 return name
@@ -143,7 +155,6 @@ class RiverSystems(object):
         return pprint.pformat(self.roots, indent=4)
 
     def add_river(self, river, dest):
-        #if len(self) == 0 or any(p.match(dest) for p in self.root_signs):
         if self._valid_root(dest):
             self._add_root(river, dest)
         else:
@@ -155,13 +166,7 @@ class RiverSystems(object):
             any(p.match(name) for name in root.names
                     for p in self.root_signs)
         )
-        return any(conditions)
-
-    def _create_root(self, root):
-        print("Creating new root for '{}'...".format(root))
-        self.roots[root] = RiverStack()
-        self.roots[root].push(root)
-        self.active_root = root
+        return any(conditions) and not root in self.roots
 
     def _add_root(self, river, dest):
         if dest != "теряется":
@@ -170,6 +175,13 @@ class RiverSystems(object):
         else:
             self._create_root(river)
 
+    def _create_root(self, root):
+        print("Creating new root for '{}'...".format(root))
+        self.roots[root] = RiverStack()
+        import ipdb; ipdb.set_trace()
+        self.roots[root].push(root)
+        self.active_root = root
+
     def _add_tributary(self, river, dest):
         print("Adding tributary '{river}' for dest '{dest}'".format(**locals()))
         self.active_root = None
@@ -177,7 +189,6 @@ class RiverSystems(object):
 
         # Good situation
         for root, stack in self.roots.items():
-            #print("Checking root: {}".format(root))
             if dest in stack:
                 target_stack = stack
                 self.active_root = root
@@ -225,16 +236,6 @@ def prepare(df):
     for col in ('river_dest', 'side'):
         _fill(col)
 
-    # Short names
-    # def _get_main_name(name):
-    #     assert(all(c in name for c in ('(', ')')) or all(c not in name for c in ('(', ')')))
-    #     if "(" in name:
-    #         return name.split("(")[0].strip()
-    #     else:
-    #         return name
-
-    # df.insert(0, 'river_main_name', df['river_full_name'].apply(_get_main_name))
-
     return df
 
 
@@ -242,9 +243,8 @@ def construct(df):
     rs = RiverSystems()
 
     for index, row in df.iterrows():
-        #river = River(row['river_main_name'])
-        river = River(row['river_full_name'])
-        dest = River(row['river_dest'])
+        river = River(row['river_full_name'], index[1])
+        dest = River(row['river_dest'], index[1])
 
         try:
             rs.add_river(river, dest)
