@@ -19,9 +19,9 @@ ENV LANG en_US.UTF-8
 ENV LANGUAGE en_US:en  
 ENV LC_ALL en_US.UTF-8
 
-RUN useradd -m vitaly
-RUN echo 'vitaly:vitaly' | chpasswd
-VOLUME ["/home/vitaly/project"]
-WORKDIR /home/vitaly/project
+RUN useradd -m hydrologist
+RUN echo 'hydrologist:hydrologist' | chpasswd
+VOLUME ["/home/hydrologist/project"]
+WORKDIR /home/hydrologist/project
 
-USER vitaly
+USER hydrologist

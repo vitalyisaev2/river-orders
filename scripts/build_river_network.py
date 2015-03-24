@@ -21,7 +21,6 @@ class River(object):
 
     def __init__(self, _name, index):
         p = re.compile(self._pattern)
-        self._name = _name
         self.names = list(filter(lambda x: len(x) > 0, [n.strip() for n in p.split(_name)]))
 
         if _name == 'без названия':
@@ -35,8 +34,15 @@ class River(object):
         else:
             return self.names[0]
 
+    @property
+    def nameless(self):
+        return True if 'без названия' in self.names else False
+
     def __str__(self):
-        return self.name
+        if len(self.names) == 1:
+            return self.name
+        else:
+            return self.name + " ({})".format(', '.join(self.names))
 
     def __repr__(self):
         return str(self)
@@ -89,10 +95,13 @@ class RiverStack(list):
         self.ns = NameSuggestion()
 
     def __str__(self):
-        return "<-".join(self.river_names)
+        if hasattr(self, 'river_names'):
+            return "<-".join(self.river_names)
+        else:
+            return "RiverStack is empty"
 
     def __repr__(self):
-        return str(self)
+        return str(self.rivers)
 
     def __getitem__(self, index):
         return self.rivers[index]
@@ -103,7 +112,6 @@ class RiverStack(list):
     def refresh_namelist(f):
         def wrapper(self, *args):
             res = f(self, *args)
-            #self.river_names = [r.name for r in self.rivers]
             self.river_names = list(itertools.chain(*(r.names for r in self.rivers)))
             return res
         return wrapper
@@ -117,15 +125,19 @@ class RiverStack(list):
         return self.rivers.pop()
 
     def __contains__(self, river):
-        if set(river.names).intersection(self.river_names):
-            print("\t{} in {}".format(river.names, str(self)))
-            return True
-        else:
-            print("\t{} not in {}".format(river.names, str(self)))
+        #No river_names is typical for nameless rivers or
+        #rivers related to internal drainage areas
+        if not hasattr(self, 'river_names'):
             return False
+        else:
+            if set(river.names).intersection(self.river_names):
+                print("\t{} in {}".format(river.names, str(self)))
+                return True
+            else:
+                print("\t{} not in {}".format(river.names, str(self)))
+                return False
 
     def find_similar(self, dest):
-        #river_names = list(itertools.chain(*(r.names for r in self.rivers)))
         for name in self.ns.suggest(dest):
             exists = name in self.river_names
             print("\t'{}' <-> '{}'; exists in '{}': {}".format(name, dest, self.river_names, exists))
@@ -143,6 +155,7 @@ class RiverSystems(object):
         r'^теряется$',
         r'^оз.\s+([А-Я]{1}[а-яА-Я-]+)$',
     ]
+
     def __init__(self):
         #self.roots = {}
         self.roots = collections.OrderedDict()
@@ -173,14 +186,14 @@ class RiverSystems(object):
             self._create_root(dest)
             self.roots[dest].push(river)
         else:
-            self._create_root(river)
+            self._create_root(river, push_root=(not river.nameless))
 
-    def _create_root(self, root):
+    def _create_root(self, root, push_root=True):
         print("Creating new root for '{}'...".format(root))
         self.roots[root] = RiverStack()
-        import ipdb; ipdb.set_trace()
-        self.roots[root].push(root)
         self.active_root = root
+        if push_root:
+            self.roots[root].push(root)
 
     def _add_tributary(self, river, dest):
         print("Adding tributary '{river}' for dest '{dest}'".format(**locals()))
