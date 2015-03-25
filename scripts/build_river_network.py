@@ -17,11 +17,12 @@ if __debug__:
     _df = None
 
 class River(object):
-    _pattern = r'[,)(]{1}'
+    _split_pattern = re.compile(r'[,)(]{1}')
+    _lost_pattern = re.compile(r'теряется')
 
     def __init__(self, _name, index):
-        p = re.compile(self._pattern)
-        self.names = list(filter(lambda x: len(x) > 0, [n.strip() for n in p.split(_name)]))
+        self.names = list(filter(lambda x: len(x) > 0,
+                        [n.strip() for n in self._split_pattern.split(_name)]))
 
         if _name == 'без названия':
             self.indexed_name = 'без названия №{}'.format(index)
@@ -37,6 +38,10 @@ class River(object):
     @property
     def nameless(self):
         return True if 'без названия' in self.names else False
+
+    @property
+    def lost(self):
+        return any(self._lost_pattern.search(n) for n in self.names)
 
     def __str__(self):
         if len(self.names) == 1:
@@ -61,13 +66,22 @@ class River(object):
 
 
 class NameSuggestion(object):
+    """
+    A collection of suggestions in the form of regular expressions
+    that help to handle most common typos automatically
+    """
     _substrings = [
-        r'^протока р. ([а-яА-Я-]+)$',
-        r'^(оз.\s+[а-яА-Я-]+)\s+\(зал.\s+[а-яА-Я-]+\)$',
-        r'^(оз.\s+[а-яА-Я-]+)\s+\([а-яА-Я-]+\s+залив\)$'
+        r"^протока р. ([а-яА-Я-]+)$",
+        r"^([а-яА-Я-]+)\s*№\s*\d+$",
+        r"^(оз.\s+[а-яА-Я-]+)\s+\(зал.\s+[а-яА-Я-]+\)$",
+        r"^(оз.\s+[а-яА-Я-]+)\s+\([а-яА-Я-]+\s+залив\)$"
     ]
     _replacements = [
-        (r"\.", ". ")
+        (r"\.", ". "),
+        (r"протока", "Протока"),
+    ]
+    _dash_capitalise = [
+        r'(?=Кок)(Кок)(.*)$',
     ]
 
     def __init__(self):
@@ -75,6 +89,8 @@ class NameSuggestion(object):
             map(re.compile, self._substrings))
         self.replacements = list(
             map(lambda x: (re.compile(x[0]), x[1]), self._replacements))
+        self.dash_capitalise = list(
+            map(re.compile, self._dash_capitalise))
 
     def suggest(self, river):
         """
@@ -85,14 +101,20 @@ class NameSuggestion(object):
                 for m in map(lambda x: x.match(name), self.substrings) if m)
         repls = (r[0].sub(r[1], name) for name in river.names
                  for r in self.replacements)
-        gens = itertools.tee(itertools.chain(subs, repls))
-        return set(itertools.chain(gens[0], map(lambda x: x.strip(), gens[1])))
+        dcs = ("-".join(map(lambda x: x.title(), m.groups()))
+                for m in (dc.match(name)
+                            for name in river.names
+                            for dc in self.dash_capitalise
+                    ) if m)
+        g = itertools.tee(itertools.chain(subs, repls, dcs))
+        return itertools.chain(g[0], map(lambda x: x.strip(), g[1]))
 
 
 class RiverStack(list):
+    ns = NameSuggestion()
+
     def __init__(self):
         self.rivers = []
-        self.ns = NameSuggestion()
 
     def __str__(self):
         if hasattr(self, 'river_names'):
@@ -134,7 +156,7 @@ class RiverStack(list):
                 print("\t{} in {}".format(river.names, str(self)))
                 return True
             else:
-                print("\t{} not in {}".format(river.names, str(self)))
+                #print("\t{} not in {}".format(river.names, str(self)))
                 return False
 
     def find_similar(self, dest):
@@ -182,7 +204,7 @@ class RiverSystems(object):
         return any(conditions) and not root in self.roots
 
     def _add_root(self, river, dest):
-        if dest != "теряется":
+        if not dest.lost:
             self._create_root(dest)
             self.roots[dest].push(river)
         else:
@@ -214,6 +236,7 @@ class RiverSystems(object):
                     dest = similar
                     target_stack = stack
                     self.active_root = root
+                    break
 
         if not target_stack:
             raise Exception("Destination river '{}' wasn't found anywhere".format(dest))
@@ -258,12 +281,12 @@ def construct(df):
     for index, row in df.iterrows():
         river = River(row['river_full_name'], index[1])
         dest = River(row['river_dest'], index[1])
-
         try:
             rs.add_river(river, dest)
         except Exception:
             print(traceback.format_exc())
             print(rs)
+            #import pdb; pdb.set_trace()
             sys.exit(1)
         else:
             print(index[1], *rs.active_system)
