@@ -79,6 +79,7 @@ class NameSuggestion(object):
     _replacements = [
         (r"\.", ". "),
         (r"протока", "Протока"),
+        (r'№\s*(\d+)', r'№\1'),
     ]
     _dash_capitalise = [
         r'(?=Кок)(Кок)(.*)$',
@@ -107,7 +108,7 @@ class NameSuggestion(object):
                             for dc in self.dash_capitalise
                     ) if m)
         g = itertools.tee(itertools.chain(subs, repls, dcs))
-        return itertools.chain(g[0], map(lambda x: x.strip(), g[1]))
+        return set(itertools.chain(g[0], map(lambda x: x.strip(), g[1])))
 
 
 class RiverStack(list):
@@ -175,11 +176,12 @@ class RiverSystems(object):
     """
     _root_signs = [
         r'^теряется$',
-        r'^оз.\s+([А-Я]{1}[а-яА-Я-]+)$',
+        r'^оз.\s+((Бол|Мал)\.\s+){0,1}([А-Я]{1}[а-яА-Я-]+)$',
+        r'^[С|c]тарица\s+р.\s+[А-Яа-я-]+$',
+        r'^оз.\s+(без\s+названия\s+){0,1}у\s+с\.\s+([А-Я]{1}[а-яА-Я-]+)$',
     ]
 
     def __init__(self):
-        #self.roots = {}
         self.roots = collections.OrderedDict()
         self.root_signs = list(map(re.compile, self._root_signs))
 
