@@ -1,12 +1,15 @@
 #!/usr/bin/python3
 # -*- coding: utf8 -*-
 
+import os
 import sys
 import re
 import itertools
 import traceback
 import pprint
 import collections
+import argparse
+from distutils.util import strtobool
 
 import pandas as pd
 import numpy as np
@@ -205,12 +208,33 @@ class RiverSystems(object):
         )
         return any(conditions) and not root in self.roots
 
-    def _add_root(self, river, dest):
-        if not dest.lost:
+    def _add_root(self, river, dest, forced=False):
+        if not dest.lost or forced:
             self._create_root(dest)
             self.roots[dest].push(river)
         else:
-            self._create_root(river, push_root=(not river.nameless))
+            #self._create_root(river, push_root=(not river.nameless))
+            self._create_root(river, push_root=True)
+
+    def _add_root_manually(self, river, dest):
+        warning = """
+River '{}' flows into '{}' but it wasn't found in existing river systems and\
+look's like not a root of new river system. Do you wish to add it as a new
+root? [y/n]""".format(river, dest)
+        print(warning)
+        while True:
+            t = None
+            try:
+                t = strtobool(input().lower())
+            except ValueError:
+                print("Use 'y' or 'n'.")
+            else:
+                if t:
+                    self._add_root(river, dest, forced=True)
+                    return True
+                else:
+                    return False
+
 
     def _create_root(self, root, push_root=True):
         print("Creating new root for '{}'...".format(root))
@@ -241,8 +265,8 @@ class RiverSystems(object):
                     break
 
         if not target_stack:
-            raise Exception("Destination river '{}' wasn't found anywhere".format(dest))
-
+            if not self._add_root_manually(river, dest):
+                raise Exception("Destination river '{}' wasn't found anywhere".format(dest))
         else:
             while dest != target_stack[-1]:
                 target_stack.pop()
@@ -277,7 +301,7 @@ def prepare(df):
     return df
 
 
-def construct(df):
+def construct(df, **kwargs):
     rs = RiverSystems()
 
     for index, row in df.iterrows():
@@ -295,17 +319,35 @@ def construct(df):
 
     return rs
 
+def parse_options():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("datafile", help="Csv file with initial data",
+                        type=str, required=True)
+    parser.add_argument("-f", "--fixture",
+                        help="List of fixtures (forced river roots etc.)",
+                        type=str)
+    args = parser.parse_args()
+    return args
 
 def main():
-    fname = sys.argv[1]
-    df = pd.read_csv(fname, sep=';')
+    options = parse_options()
+
+    # main data
+    df = pd.read_csv(options.datafile, sep=';')
     df = prepare(df)
+
+    # fixtures list
+    if os.path.isfile(options.fixture):
+        with open(options.fixture) as f:
+            fixtures=f.read().split("\n")
+    else:
+        fixtures = None
 
     if __debug__:
         global _df
         _df = df
 
-    construct(df)
+    construct(df, fixtures=fixtures)
 
 if __name__ == "__main__":
     main()
