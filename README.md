@@ -12,5 +12,5 @@ $ docker run --privileged -it --rm -v `pwd`:/home/hydrologist/project:ro river-o
 When you're inside the container, start ipython session:
 ```sh
 hydrologist@35922fe8329b:~/project$ ipython
-In [1]: %run scripts/build_river_network.py data/example.long.csv
+In [1]: %run build_river_network.py data/example.long.csv -f data/example.long.fixture
 ```

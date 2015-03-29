@@ -19,10 +19,6 @@ class River(object):
                         [n.strip() for n in self._split_pattern.split(_name)]))
         self.multiname = True if len(self.names) > 1 else False
 
-        #if self.nameless:
-        #    assert(index)
-        #    self.indexed_name = '{} №{}'.format(_name, index)
-        #    self.names.append(self.indexed_name)
         if index:
             main_name = self.names[0] if self.multiname else _name
             self.indexed_name = '{} №{}'.format(main_name, index)
@@ -30,10 +26,6 @@ class River(object):
 
     @property
     def name(self):
-        #if hasattr(self, 'indexed_name'):
-        #    return self.indexed_name
-        #else:
-        #    return self.names[0]
         if self.nameless:
             return self.indexed_name
         else:
