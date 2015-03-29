@@ -30,15 +30,24 @@ class River(object):
     def __init__(self, _name, index=None):
         self.names = list(filter(lambda x: len(x) > 0,
                         [n.strip() for n in self._split_pattern.split(_name)]))
+        self.multiname = True if len(self.names) > 1 else False
 
-        if self.nameless:
-            assert(index)
-            self.indexed_name = '{} №{}'.format(_name, index)
+        #if self.nameless:
+        #    assert(index)
+        #    self.indexed_name = '{} №{}'.format(_name, index)
+        #    self.names.append(self.indexed_name)
+        if index:
+            main_name = self.names[0] if self.multiname else _name
+            self.indexed_name = '{} №{}'.format(main_name, index)
             self.names.append(self.indexed_name)
 
     @property
     def name(self):
-        if hasattr(self, 'indexed_name'):
+        #if hasattr(self, 'indexed_name'):
+        #    return self.indexed_name
+        #else:
+        #    return self.names[0]
+        if self.nameless:
             return self.indexed_name
         else:
             return self.names[0]
@@ -54,7 +63,7 @@ class River(object):
     def __str__(self):
         if self.nameless:
             return self.indexed_name
-        elif len(self.names) == 1:
+        elif not(self.multiname):
             return self.name
         else:
             return self.name + " ({})".format(', '.join(self.names))
@@ -73,7 +82,6 @@ class River(object):
 
     def __hash__(self):
         return self.name.__hash__()
-
 
 class NameSuggestion(object):
     """
@@ -94,12 +102,14 @@ class NameSuggestion(object):
         (r"[В|в]{1}дхр(?!\.)", "вдхр."),
         (r'№\s*(\d+)', r'№\1'),
         (r"^([А-Я]{1}[а-яА-Я-]+)$", r'Ручей \1'),
+        (r"^([А-Я]{1}[а-яА-Я-]+)$", r'Ключ \1'),
     )
     _dash_capitalise = (
         r'(?=Кок)(Кок)(.*)$',
     )
     _abbreviations = (
-        (r'Бел.', ('Белый', 'Белая', 'Белое')),
+        ('Бел.', ('Белый', 'Белая', 'Белое')),
+        ('Прав.', ('Правый', 'Правая', 'Правое')),
     )
 
     def __init__(self):
@@ -114,7 +124,7 @@ class NameSuggestion(object):
 
     def suggest(self, river):
         """
-        Provides the set of unique suggested names, according to the list of
+        provides the set of unique suggested names, according to the list of
         regular expressions
         """
         subs = (m.groups()[0] for name in river.names
@@ -127,6 +137,10 @@ class NameSuggestion(object):
                             for dc in self.dash_capitalise
                     ) if m)
         abbrs = (r[0].sub(form, name) for name in river.names for r in self.abbreviations for form in r[1])
+        #abbrs = itertools.chain((form.sub([r[0], name), r[0].sub(form, name)) for name in river.names for form in r[1] for r in self.abbreviations)
+        #def _double_replacement(truncated, morphed, name):
+            #return truncated.replace(morphed, name), morphed.replace(truncated, name)
+        #abbrs = itertools.chain(*(_double_replacement(r[0], morphed, name) for name in river.names for r in self._abbreviations for morphed in r[1]))
         g = itertools.tee(itertools.chain(subs, repls, dcs, abbrs))
         return set(itertools.chain(g[0], map(lambda x: x.strip(), g[1])))
 
@@ -196,7 +210,7 @@ class RiverSystems(object):
     """
     _root_signs = [
         r'^оз.\s+((Бол|Мал)\.\s+){0,1}([А-Я]{1}[а-яА-Я-]+)$',
-        r'^вдхр\.?\s+[А-Я]{1}[а-яА-Я-]+$',
+        r'^вдхр\.?\s+[А-Яа-я- .]+$',
         r'^[С|c]тарица\s+р.\s+[А-Яа-я-]+$',
         r'^оз.\s+(без\s+названия\s+){0,1}у\s+с\.\s+([А-Я]{1}[а-яА-Я-]+)$',
     ]
