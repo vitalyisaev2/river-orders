@@ -1,24 +1,11 @@
-#!/usr/bin/python3
-# -*- coding: utf8 -*-
-
-import os
-import sys
+#! -*- coding: utf8 -*-
 import re
 import itertools
-import traceback
 import pprint
 import collections
-import argparse
 from distutils.util import strtobool
 
-import pandas as pd
-import numpy as np
-import yaml
-
-pd.set_option('display.width', 160)
-
-if __debug__:
-    _df = None
+from .naming import NameSuggestion
 
 _lost = ('^теряется$', '^разбирается на орошение$')
 
@@ -82,67 +69,6 @@ class River(object):
 
     def __hash__(self):
         return self.name.__hash__()
-
-class NameSuggestion(object):
-    """
-    A collection of suggestions in the form of regular expressions
-    that help to handle most common typos automatically
-    """
-    _substrings = (
-        r"^[Пп]{1}ротока\s+р.\s+([а-яА-Я-]+)$",
-        r"^([а-яА-Я-]+)\s*№\s*\d+$",
-        r"^(оз.\s+[а-яА-Я-]+)\s+\(зал.\s+[а-яА-Я-]+\)$",
-        r"^(оз.\s+[а-яА-Я-]+)\s+\([а-яА-Я-]+\s+залив\)$",
-        r"^кл.\s+(.*)$"
-    )
-    _replacements = (
-        (r"\.", ". "),
-        (r"протока", "Протока"),
-        (r"рукав", "Рукав"),
-        (r"[В|в]{1}дхр(?!\.)", "вдхр."),
-        (r'№\s*(\d+)', r'№\1'),
-        (r"^([А-Я]{1}[а-яА-Я-]+)$", r'Ручей \1'),
-        (r"^([А-Я]{1}[а-яА-Я-]+)$", r'Ключ \1'),
-    )
-    _dash_capitalise = (
-        r'(?=Кок)(Кок)(.*)$',
-    )
-    _abbreviations = (
-        ('Бел.', ('Белый', 'Белая', 'Белое')),
-        ('Прав.', ('Правый', 'Правая', 'Правое')),
-    )
-
-    def __init__(self):
-        self.substrings = list(
-            map(re.compile, self._substrings))
-        self.replacements = list(
-            map(lambda x: (re.compile(x[0]), x[1]), self._replacements))
-        self.dash_capitalise = list(
-            map(re.compile, self._dash_capitalise))
-        self.abbreviations = list(
-            map(lambda x: (re.compile(x[0]), x[1]), self._abbreviations))
-
-    def suggest(self, river):
-        """
-        provides the set of unique suggested names, according to the list of
-        regular expressions
-        """
-        subs = (m.groups()[0] for name in river.names
-                for m in map(lambda x: x.match(name), self.substrings) if m)
-        repls = (r[0].sub(r[1], name) for name in river.names
-                 for r in self.replacements)
-        dcs = ("-".join(map(lambda x: x.title(), m.groups()))
-                for m in (dc.match(name)
-                            for name in river.names
-                            for dc in self.dash_capitalise
-                    ) if m)
-        abbrs = (r[0].sub(form, name) for name in river.names for r in self.abbreviations for form in r[1])
-        #abbrs = itertools.chain((form.sub([r[0], name), r[0].sub(form, name)) for name in river.names for form in r[1] for r in self.abbreviations)
-        #def _double_replacement(truncated, morphed, name):
-            #return truncated.replace(morphed, name), morphed.replace(truncated, name)
-        #abbrs = itertools.chain(*(_double_replacement(r[0], morphed, name) for name in river.names for r in self._abbreviations for morphed in r[1]))
-        g = itertools.tee(itertools.chain(subs, repls, dcs, abbrs))
-        return set(itertools.chain(g[0], map(lambda x: x.strip(), g[1])))
 
 
 class RiverStack(list):
@@ -313,77 +239,3 @@ root? [y/n]""".format(river, dest)
     def active_system(self):
         return self.active_root, self.roots[self.active_root]
 
-
-def prepare(df):
-    # Splitting the id by two separate fields
-    nan_values = np.delete(df.columns.values, 0)
-
-    df.insert(0, 'region', df[pd.isnull(df[nan_values]).all(1)]['id'])
-    df['region'] = df['region'].ffill()
-
-    df.insert(1, 'river_id', df[~pd.isnull(df[nan_values]).all(1)]['id'])
-    df = df[~pd.isnull(df['river_id'])]
-    df.set_index(['region', 'river_id'], inplace=True, drop=True)
-    del df['id']
-
-    # Fill downwards "»" values
-    def _fill(col):
-        df.loc[df[col] == '»', col] = np.nan
-        df[col] = df[col].ffill()
-
-    for col in ('river_dest', 'side'):
-        _fill(col)
-
-    return df
-
-
-def construct(df, **kwargs):
-    rs = RiverSystems(**kwargs)
-
-    for index, row in df.iterrows():
-        river = River(row['river_full_name'], index[1])
-        dest = River(row['river_dest'], index[1])
-        try:
-            rs.add_river(river, dest)
-        except Exception:
-            print(traceback.format_exc())
-            print(rs)
-            #import pdb; pdb.set_trace()
-            sys.exit(1)
-        else:
-            print(index[1], *rs.active_system)
-
-    return rs
-
-def parse_options():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("datafile", help="Csv file with initial data",
-                        type=str)
-    parser.add_argument("-f", "--fixture",
-                        help="List of fixtures",
-                        type=str)
-    args = parser.parse_args()
-    return args
-
-def main():
-    options = parse_options()
-
-    # main data
-    df = pd.read_csv(options.datafile, sep=';')
-    df = prepare(df)
-
-    # fixtures list
-    if os.path.isfile(options.fixture):
-        with open(options.fixture) as f:
-            fixtures = yaml.load(f)
-    else:
-        fixtures = None
-
-    if __debug__:
-        global _df
-        _df = df
-
-    construct(df, fixtures=fixtures)
-
-if __name__ == "__main__":
-    main()
