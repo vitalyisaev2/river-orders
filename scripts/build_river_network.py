@@ -20,16 +20,18 @@ pd.set_option('display.width', 160)
 if __debug__:
     _df = None
 
+_lost = ('^теряется$', '^разбирается на орошение$')
+
 class River(object):
     _split_pattern = re.compile(r'[,)(]{1}')
-    _lost_pattern = re.compile(r'теряется')
+    _lost_patterns = [re.compile(p) for p in _lost]
     _nameless_pattern = re.compile(r'без названия')
 
     def __init__(self, _name, index=None):
         self.names = list(filter(lambda x: len(x) > 0,
                         [n.strip() for n in self._split_pattern.split(_name)]))
 
-        if self._nameless_pattern.search(_name):
+        if self.nameless:
             assert(index)
             self.indexed_name = '{} №{}'.format(_name, index)
             self.names.append(self.indexed_name)
@@ -43,14 +45,16 @@ class River(object):
 
     @property
     def nameless(self):
-        return True if 'без названия' in self.names else False
+        return any(map(self._nameless_pattern.search, self.names))
 
     @property
     def lost(self):
-        return any(self._lost_pattern.search(n) for n in self.names)
+        return any(p.search(n) for p in self._lost_patterns for n in self.names)
 
     def __str__(self):
-        if len(self.names) == 1:
+        if self.nameless:
+            return self.indexed_name
+        elif len(self.names) == 1:
             return self.name
         else:
             return self.name + " ({})".format(', '.join(self.names))
@@ -76,23 +80,27 @@ class NameSuggestion(object):
     A collection of suggestions in the form of regular expressions
     that help to handle most common typos automatically
     """
-    _substrings = [
+    _substrings = (
         r"^[Пп]{1}ротока\s+р.\s+([а-яА-Я-]+)$",
         r"^([а-яА-Я-]+)\s*№\s*\d+$",
         r"^(оз.\s+[а-яА-Я-]+)\s+\(зал.\s+[а-яА-Я-]+\)$",
         r"^(оз.\s+[а-яА-Я-]+)\s+\([а-яА-Я-]+\s+залив\)$",
-    ]
-    _replacements = [
+        r"^кл.\s+(.*)$"
+    )
+    _replacements = (
         (r"\.", ". "),
         (r"протока", "Протока"),
         (r"рукав", "Рукав"),
         (r"[В|в]{1}дхр(?!\.)", "вдхр."),
         (r'№\s*(\d+)', r'№\1'),
         (r"^([А-Я]{1}[а-яА-Я-]+)$", r'Ручей \1'),
-    ]
-    _dash_capitalise = [
+    )
+    _dash_capitalise = (
         r'(?=Кок)(Кок)(.*)$',
-    ]
+    )
+    _abbreviations = (
+        (r'Бел.', ('Белый', 'Белая', 'Белое')),
+    )
 
     def __init__(self):
         self.substrings = list(
@@ -101,6 +109,8 @@ class NameSuggestion(object):
             map(lambda x: (re.compile(x[0]), x[1]), self._replacements))
         self.dash_capitalise = list(
             map(re.compile, self._dash_capitalise))
+        self.abbreviations = list(
+            map(lambda x: (re.compile(x[0]), x[1]), self._abbreviations))
 
     def suggest(self, river):
         """
@@ -116,7 +126,8 @@ class NameSuggestion(object):
                             for name in river.names
                             for dc in self.dash_capitalise
                     ) if m)
-        g = itertools.tee(itertools.chain(subs, repls, dcs))
+        abbrs = (r[0].sub(form, name) for name in river.names for r in self.abbreviations for form in r[1])
+        g = itertools.tee(itertools.chain(subs, repls, dcs, abbrs))
         return set(itertools.chain(g[0], map(lambda x: x.strip(), g[1])))
 
 
@@ -184,13 +195,12 @@ class RiverSystems(object):
     initial data. This class is trying to keep track of every of them.
     """
     _root_signs = [
-        r'^теряется$',
-        r'^разбирается на орошение$',
         r'^оз.\s+((Бол|Мал)\.\s+){0,1}([А-Я]{1}[а-яА-Я-]+)$',
-        r'^вдхр.\s+[А-Я]{1}[а-яА-Я-]+$',
+        r'^вдхр\.?\s+[А-Я]{1}[а-яА-Я-]+$',
         r'^[С|c]тарица\s+р.\s+[А-Яа-я-]+$',
         r'^оз.\s+(без\s+названия\s+){0,1}у\s+с\.\s+([А-Я]{1}[а-яА-Я-]+)$',
     ]
+    _root_signs.extend(_lost)
 
     def __init__(self, fixtures=None):
         self.roots = collections.OrderedDict()
@@ -230,8 +240,8 @@ class RiverSystems(object):
 
     def _add_root_manually(self, river, dest):
         warning = """
-River '{}' flows into '{}' but it wasn't found in existing river systems and\
-look's like not a root of new river system. Do you wish to add it as a new
+River '{}' flows into '{}' but it wasn't found in existing river systems and \
+doesn't look like a root of new river system. Do you wish to add it as a new
 root? [y/n]""".format(river, dest)
         print(warning)
         while True:
@@ -277,6 +287,7 @@ root? [y/n]""".format(river, dest)
                     break
 
         if not target_stack:
+            # maybe someone want to add roots interactively rather than with
             if not self._add_root_manually(river, dest):
                 raise Exception("Destination river '{}' wasn't found anywhere".format(dest))
         else:
