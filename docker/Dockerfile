@@ -9,6 +9,7 @@ RUN apt-get -y update
 
 RUN apt-get -y install python3-pip
 RUN apt-get -y install python3-pandas
+RUN apt-get -y install python3-yaml
 
 RUN pip3 install networkx 
 RUN pip3 install ipython 

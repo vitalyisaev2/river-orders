@@ -13,6 +13,7 @@ from distutils.util import strtobool
 
 import pandas as pd
 import numpy as np
+import yaml
 
 pd.set_option('display.width', 160)
 
@@ -23,11 +24,12 @@ class River(object):
     _split_pattern = re.compile(r'[,)(]{1}')
     _lost_pattern = re.compile(r'теряется')
 
-    def __init__(self, _name, index):
+    def __init__(self, _name, index=None):
         self.names = list(filter(lambda x: len(x) > 0,
                         [n.strip() for n in self._split_pattern.split(_name)]))
 
         if _name == 'без названия':
+            assert(index)
             self.indexed_name = 'без названия №{}'.format(index)
             self.names.append(self.indexed_name)
 
@@ -184,9 +186,12 @@ class RiverSystems(object):
         r'^оз.\s+(без\s+названия\s+){0,1}у\s+с\.\s+([А-Я]{1}[а-яА-Я-]+)$',
     ]
 
-    def __init__(self):
+    def __init__(self, fixtures=None):
         self.roots = collections.OrderedDict()
         self.root_signs = list(map(re.compile, self._root_signs))
+
+        if fixtures:
+            self.hanging_roots = [River(r) for r in fixtures["hanging_roots"]]
 
     def __len__(self):
         return len(self.roots)
@@ -204,7 +209,8 @@ class RiverSystems(object):
         conditions = (
             len(self) == 0,
             any(p.match(name) for name in root.names
-                    for p in self.root_signs)
+                    for p in self.root_signs),
+            root in self.hanging_roots,
         )
         return any(conditions) and not root in self.roots
 
@@ -302,7 +308,7 @@ def prepare(df):
 
 
 def construct(df, **kwargs):
-    rs = RiverSystems()
+    rs = RiverSystems(**kwargs)
 
     for index, row in df.iterrows():
         river = River(row['river_full_name'], index[1])
@@ -322,9 +328,9 @@ def construct(df, **kwargs):
 def parse_options():
     parser = argparse.ArgumentParser()
     parser.add_argument("datafile", help="Csv file with initial data",
-                        type=str, required=True)
+                        type=str)
     parser.add_argument("-f", "--fixture",
-                        help="List of fixtures (forced river roots etc.)",
+                        help="List of fixtures",
                         type=str)
     args = parser.parse_args()
     return args
@@ -339,7 +345,7 @@ def main():
     # fixtures list
     if os.path.isfile(options.fixture):
         with open(options.fixture) as f:
-            fixtures=f.read().split("\n")
+            fixtures = yaml.load(f)
     else:
         fixtures = None
 
