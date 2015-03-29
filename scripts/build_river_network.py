@@ -23,14 +23,15 @@ if __debug__:
 class River(object):
     _split_pattern = re.compile(r'[,)(]{1}')
     _lost_pattern = re.compile(r'теряется')
+    _nameless_pattern = re.compile(r'без названия')
 
     def __init__(self, _name, index=None):
         self.names = list(filter(lambda x: len(x) > 0,
                         [n.strip() for n in self._split_pattern.split(_name)]))
 
-        if _name == 'без названия':
+        if self._nameless_pattern.search(_name):
             assert(index)
-            self.indexed_name = 'без названия №{}'.format(index)
+            self.indexed_name = '{} №{}'.format(_name, index)
             self.names.append(self.indexed_name)
 
     @property
@@ -76,15 +77,18 @@ class NameSuggestion(object):
     that help to handle most common typos automatically
     """
     _substrings = [
-        r"^протока р. ([а-яА-Я-]+)$",
+        r"^[Пп]{1}ротока\s+р.\s+([а-яА-Я-]+)$",
         r"^([а-яА-Я-]+)\s*№\s*\d+$",
         r"^(оз.\s+[а-яА-Я-]+)\s+\(зал.\s+[а-яА-Я-]+\)$",
-        r"^(оз.\s+[а-яА-Я-]+)\s+\([а-яА-Я-]+\s+залив\)$"
+        r"^(оз.\s+[а-яА-Я-]+)\s+\([а-яА-Я-]+\s+залив\)$",
     ]
     _replacements = [
         (r"\.", ". "),
         (r"протока", "Протока"),
+        (r"рукав", "Рукав"),
+        (r"[В|в]{1}дхр(?!\.)", "вдхр."),
         (r'№\s*(\d+)', r'№\1'),
+        (r"^([А-Я]{1}[а-яА-Я-]+)$", r'Ручей \1'),
     ]
     _dash_capitalise = [
         r'(?=Кок)(Кок)(.*)$',
@@ -181,7 +185,9 @@ class RiverSystems(object):
     """
     _root_signs = [
         r'^теряется$',
+        r'^разбирается на орошение$',
         r'^оз.\s+((Бол|Мал)\.\s+){0,1}([А-Я]{1}[а-яА-Я-]+)$',
+        r'^вдхр.\s+[А-Я]{1}[а-яА-Я-]+$',
         r'^[С|c]тарица\s+р.\s+[А-Яа-я-]+$',
         r'^оз.\s+(без\s+названия\s+){0,1}у\s+с\.\s+([А-Я]{1}[а-яА-Я-]+)$',
     ]
@@ -292,7 +298,6 @@ def prepare(df):
 
     df.insert(1, 'river_id', df[~pd.isnull(df[nan_values]).all(1)]['id'])
     df = df[~pd.isnull(df['river_id'])]
-
     df.set_index(['region', 'river_id'], inplace=True, drop=True)
     del df['id']
 
