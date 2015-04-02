@@ -4,6 +4,7 @@ import re
 
 
 class NameSuggestion(object):
+
     """
     A collection of suggestions in the form of regular expressions
     that help to handle most common typos automatically
@@ -30,6 +31,7 @@ class NameSuggestion(object):
     _abbreviations = (
         ('Бел.', ('Белый', 'Белая', 'Белое')),
         ('Прав.', ('Правый', 'Правая', 'Правое')),
+        ('Лев.', ('Левый', 'Левая', 'Левое')),
     )
 
     def __init__(self):
@@ -39,8 +41,6 @@ class NameSuggestion(object):
             map(lambda x: (re.compile(x[0]), x[1]), self._replacements))
         self.dash_capitalise = list(
             map(re.compile, self._dash_capitalise))
-        self.abbreviations = list(
-            map(lambda x: (re.compile(x[0]), x[1]), self._abbreviations))
 
     def suggest(self, river):
         """
@@ -52,14 +52,17 @@ class NameSuggestion(object):
         repls = (r[0].sub(r[1], name) for name in river.names
                  for r in self.replacements)
         dcs = ("-".join(map(lambda x: x.title(), m.groups()))
-                for m in (dc.match(name)
-                            for name in river.names
-                            for dc in self.dash_capitalise
-                    ) if m)
-        abbrs = (r[0].sub(form, name) for name in river.names for r in self.abbreviations for form in r[1])
-        #abbrs = itertools.chain((form.sub([r[0], name), r[0].sub(form, name)) for name in river.names for form in r[1] for r in self.abbreviations)
-        #def _double_replacement(truncated, morphed, name):
-            #return truncated.replace(morphed, name), morphed.replace(truncated, name)
-        #abbrs = itertools.chain(*(_double_replacement(r[0], morphed, name) for name in river.names for r in self._abbreviations for morphed in r[1]))
-        g = itertools.tee(itertools.chain(subs, repls, dcs, abbrs))
+               for m in (dc.match(name)
+                         for name in river.names
+                         for dc in self.dash_capitalise
+                         ) if m)
+        titles = (name.title() for name in river.names)
+
+        def _double_replacement(truncated, morphed, name):
+            return name.replace(truncated, morphed), name.replace(morphed, truncated)
+        abbrs = itertools.chain(
+            *(_double_replacement(r[0], morphed, name) for name in river.names
+              for r in self._abbreviations for morphed in r[1]))
+
+        g = itertools.tee(itertools.chain(subs, repls, dcs, titles, abbrs))
         return set(itertools.chain(g[0], map(lambda x: x.strip(), g[1])))

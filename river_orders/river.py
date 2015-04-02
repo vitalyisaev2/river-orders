@@ -9,6 +9,7 @@ from .naming import NameSuggestion
 
 _lost = ('^теряется$', '^разбирается на орошение$')
 
+
 class River(object):
     _split_pattern = re.compile(r'[,)(]{1}')
     _lost_patterns = [re.compile(p) for p in _lost]
@@ -16,7 +17,7 @@ class River(object):
 
     def __init__(self, _name, index=None):
         self.names = list(filter(lambda x: len(x) > 0,
-                        [n.strip() for n in self._split_pattern.split(_name)]))
+                                 [n.strip() for n in self._split_pattern.split(_name)]))
         self.multiname = True if len(self.names) > 1 else False
 
         if index:
@@ -70,8 +71,8 @@ class RiverStack(list):
         self.rivers = []
 
     def __str__(self):
-        if hasattr(self, 'river_names'):
-            return "<-".join(self.river_names)
+        if self.rivers:
+            return "<-".join(map(str, self.rivers))
         else:
             return "RiverStack is empty"
 
@@ -100,28 +101,28 @@ class RiverStack(list):
         return self.rivers.pop()
 
     def __contains__(self, river):
-        #No river_names is typical for nameless rivers or
-        #rivers related to internal drainage areas
+        # No river_names is typical for nameless rivers or
+        # rivers related to internal drainage areas
         if not hasattr(self, 'river_names'):
             return False
         else:
             if set(river.names).intersection(self.river_names):
-                print("\t{} in {}".format(river.names, str(self)))
                 return True
             else:
-                #print("\t{} not in {}".format(river.names, str(self)))
                 return False
 
     def find_similar(self, dest):
         for name in self.ns.suggest(dest):
             exists = name in self.river_names
-            print("\t'{}' <-> '{}'; exists in '{}': {}".format(name, dest, self.river_names, exists))
+            print(
+                "\t'{}' <-> '{}'; exists in '{}': {}".format(name, dest, self.river_names, exists))
             if exists:
                 print("\tSuggesting '{}' instead of '{}'".format(name, dest))
                 return name
 
 
 class RiverSystems(object):
+
     """
     Several independent river systems can be discovered while parsing the
     initial data. This class is trying to keep track of every of them.
@@ -157,7 +158,7 @@ class RiverSystems(object):
         conditions = (
             len(self) == 0,
             any(p.match(name) for name in root.names
-                    for p in self.root_signs),
+                for p in self.root_signs),
             root in self.hanging_roots,
         )
         return any(conditions) and not root in self.roots
@@ -167,7 +168,6 @@ class RiverSystems(object):
             self._create_root(dest)
             self.roots[dest].push(river)
         else:
-            #self._create_root(river, push_root=(not river.nameless))
             self._create_root(river, push_root=True)
 
     def _add_root_manually(self, river, dest):
@@ -188,7 +188,6 @@ root? [y/n]""".format(river, dest)
                     return True
                 else:
                     return False
-
 
     def _create_root(self, root, push_root=True):
         print("Creating new root for '{}'...".format(root))
@@ -230,4 +229,3 @@ root? [y/n]""".format(river, dest)
     @property
     def active_system(self):
         return self.active_root, self.roots[self.active_root]
-

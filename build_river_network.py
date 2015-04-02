@@ -18,6 +18,7 @@ if __debug__:
     pd.set_option('display.width', 160)
     _df = None
 
+
 def prepare(df):
     # Splitting the id by two separate fields
     nan_values = np.delete(df.columns.values, 0)
@@ -40,6 +41,7 @@ def prepare(df):
 
     return df
 
+
 def construct(df, **kwargs):
     rs = RiverSystems(**kwargs)
 
@@ -51,12 +53,13 @@ def construct(df, **kwargs):
         except Exception:
             print(traceback.format_exc())
             print(rs)
-            #import pdb; pdb.set_trace()
+            # import pdb; pdb.set_trace()
             sys.exit(1)
         else:
             print(index[1], *rs.active_system)
 
     return rs
+
 
 def parse_options():
     parser = argparse.ArgumentParser()
@@ -67,6 +70,7 @@ def parse_options():
                         type=str)
     args = parser.parse_args()
     return args
+
 
 def main():
     options = parse_options()
@@ -86,7 +90,8 @@ def main():
         global _df
         _df = df
 
-    construct(df, fixtures=fixtures)
+    rs = construct(df, fixtures=fixtures)
+    print(rs)
 
 if __name__ == "__main__":
     main()
