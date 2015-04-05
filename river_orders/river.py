@@ -7,9 +7,12 @@ from distutils.util import strtobool
 from operator import attrgetter
 
 import networkx
+import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
 from .naming import NameSuggestion
+
 
 _lost = ('^теряется$', '^разбирается на орошение$')
 
@@ -24,7 +27,7 @@ class River(object):
     _lost_patterns = [re.compile(p) for p in _lost]
     _nameless_pattern = re.compile(r'без названия')
 
-    def __init__(self, _name, length, dest_from_end, index=None):
+    def __init__(self, _name, length=0, dest_from_end=0, index=None, **kwargs):
         self.names = list(filter(lambda x: len(x) > 0,
                                  [n.strip() for n in self._split_pattern.split(_name)]))
         self.multiname = True if len(self.names) > 1 else False
@@ -53,10 +56,6 @@ class River(object):
     def lost(self):
         return any(p.search(n) for p in self._lost_patterns for n in self.names)
 
-    @property
-    def graph(self):
-        return self.G
-
     def __str__(self):
         if self.nameless:
             return self.indexed_name
@@ -80,21 +79,13 @@ class River(object):
     def __hash__(self):
         return self.name.__hash__()
 
-    def finalize(self):
-        if len(self.tributaries) == 0:
-            self.G.add_node(self.name)
-        else:
-            bassin = self.tributaries.sorted_graph
-            for trib in bassin:
-                self.G.add_edge(self, trib)
-
 
 class Tributaries(object):
 
     def __init__(self):
         self.tribs = []
 
-    def __add__(self, other):
+    def add(self, other):
         if isinstance(other, River):
             self.tribs.append(other)
         else:
@@ -117,10 +108,9 @@ class RiverStack(list):
 
     def __init__(self, root):
         self.rivers = []
-        self.root = root
+
         # initialize river network graph
         self.G = networkx.Graph()
-        self.G.add_node(self.root)
 
     def __str__(self):
         if self.rivers:
@@ -153,7 +143,7 @@ class RiverStack(list):
         return self.rivers[-2]
 
     @property
-    def graph():
+    def graph(self):
         return self.G
 
     @refresh_namelist
@@ -163,16 +153,12 @@ class RiverStack(list):
         it's stored in the tributary list of the next order river
         """
         self.rivers.append(river)
-        self.next_order_river.tributaries += self.last_river
+        self.G.add_node(river)
+        if len(self) > 1:
+            self.G.add_edge(self.next_order_river, self.last_river)
 
     @refresh_namelist
     def pop(self):
-        """
-        When leaving the river bassin, we need to add its graph
-        to the graph of the next order river
-        """
-        self.last_river.finalize()
-        self.next_order_river.graph.add_edge(self.next_order_river, self.last_river.graph)
         self.rivers.pop()
 
     def __contains__(self, river):
@@ -189,8 +175,8 @@ class RiverStack(list):
     def find_similar(self, dest):
         for name in self.ns.suggest(dest):
             exists = name in self.river_names
-            print(
-                "\t'{}' <-> '{}'; exists in '{}': {}".format(name, dest, self.river_names, exists))
+            # print(
+            #     "\t'{}' <-> '{}'; exists in '{}': {}".format(name, dest, self.river_names, exists))
             if exists:
                 print("\tSuggesting '{}' instead of '{}'".format(name, dest))
                 return name
@@ -202,6 +188,7 @@ class RiverSystems(object):
     Several independent river systems can be discovered while parsing the
     initial data. This class is trying to keep track of every of them.
     """
+
     _root_signs = [
         r'^оз.\s+((Бол|Мал)\.\s+){0,1}([А-Я]{1}[а-яА-Я-]+)$',
         r'^вдхр\.?\s+[А-Яа-я- .]+$',
@@ -303,14 +290,16 @@ root? [y/n]""".format(river, dest)
                 target_stack.pop()
             target_stack.push(river)
 
-
     @property
     def active_system(self):
         return self.active_root, self.roots[self.active_root]
 
     def draw_all(self):
-        for river, river_stack in self.roots.items():
-            pass
-
-
-
+        for i, f in enumerate((networkx.draw, networkx.draw_random, networkx.draw_circular, networkx.draw_spectral)):
+            for river, river_stack in self.roots.items():
+                fname = river.name + str(i) + ".png"
+                print("Trying to dump {} network graph to '{}'".format(river, fname))
+                f(river_stack.graph)
+                plt.savefig(fname)
+                plt.clf()
+                break
