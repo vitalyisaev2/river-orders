@@ -45,9 +45,11 @@ def prepare(df):
 def construct(df, **kwargs):
     rs = RiverSystems(**kwargs)
 
-    for index, row in df.iterrows():
-        river = River(row['river_full_name'], index[1])
-        dest = River(row['river_dest'], index[1])
+    for index, r in df.iterrows():
+        #river = River(row['river_full_name'], index[1])
+        #dest = River(row['river_dest'], index[1])
+        river = River(_name=r.river_full_name, index=index[1], **r)
+        dest = River(_name=r.river_dest, index=index[1], **r)
         try:
             rs.add_river(river, dest)
         except Exception:
@@ -80,7 +82,7 @@ def main():
     df = prepare(df)
 
     # fixtures list
-    if os.path.isfile(options.fixture):
+    if options.fixture:
         with open(options.fixture) as f:
             fixtures = yaml.load(f)
     else:

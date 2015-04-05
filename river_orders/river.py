@@ -4,6 +4,10 @@ import itertools
 import pprint
 import collections
 from distutils.util import strtobool
+from operator import attrgetter
+
+import networkx
+import matplotlib.pyplot as plt
 
 from .naming import NameSuggestion
 
@@ -11,14 +15,23 @@ _lost = ('^теряется$', '^разбирается на орошение$')
 
 
 class River(object):
+
+    """
+    Represents any strem hydrological object. Attempts to handle in a simple way
+    complicated name situation (noname river or river that flows into nowhere)
+    """
     _split_pattern = re.compile(r'[,)(]{1}')
     _lost_patterns = [re.compile(p) for p in _lost]
     _nameless_pattern = re.compile(r'без названия')
 
-    def __init__(self, _name, index=None):
+    def __init__(self, _name, length, dest_from_end, index=None):
         self.names = list(filter(lambda x: len(x) > 0,
                                  [n.strip() for n in self._split_pattern.split(_name)]))
         self.multiname = True if len(self.names) > 1 else False
+        self.length = length
+        self.dest_from_end = dest_from_end
+        self.tributaries = Tributaries()
+        self.G = networkx.Graph()
 
         if index:
             main_name = self.names[0] if self.multiname else _name
@@ -39,6 +52,10 @@ class River(object):
     @property
     def lost(self):
         return any(p.search(n) for p in self._lost_patterns for n in self.names)
+
+    @property
+    def graph(self):
+        return self.G
 
     def __str__(self):
         if self.nameless:
@@ -63,12 +80,47 @@ class River(object):
     def __hash__(self):
         return self.name.__hash__()
 
+    def finalize(self):
+        if len(self.tributaries) == 0:
+            self.G.add_node(self.name)
+        else:
+            bassin = self.tributaries.sorted_graph
+            for trib in bassin:
+                self.G.add_edge(self, trib)
 
-class RiverStack(list):
-    ns = NameSuggestion()
+
+class Tributaries(object):
 
     def __init__(self):
+        self.tribs = []
+
+    def __add__(self, other):
+        if isinstance(other, River):
+            self.tribs.append(other)
+        else:
+            raise Exception("'{}' is instance of '{}' while River was expected".format(
+                other, other.__class__.__name__))
+
+    def __len__(self):
+        return len(self.tribs)
+
+    @property
+    def sorted_graph(self):
+        return map(lambda t: t.graph, sorted(self.tribs, key=attrgetter('dest_from_end')))
+
+
+class RiverStack(list):
+
+    # FIXME: wanna have the only instance for NameSuggestion
+    # for all the RiverStack instances. Is it correct?
+    ns = NameSuggestion()
+
+    def __init__(self, root):
         self.rivers = []
+        self.root = root
+        # initialize river network graph
+        self.G = networkx.Graph()
+        self.G.add_node(self.root)
 
     def __str__(self):
         if self.rivers:
@@ -92,13 +144,36 @@ class RiverStack(list):
             return res
         return wrapper
 
+    @property
+    def last_river(self):
+        return self.rivers[-1]
+
+    @property
+    def next_order_river(self):
+        return self.rivers[-2]
+
+    @property
+    def graph():
+        return self.G
+
     @refresh_namelist
-    def push(self, item):
-        return self.rivers.append(item)
+    def push(self, river):
+        """
+        When the river is pushed to the appropriate stack,
+        it's stored in the tributary list of the next order river
+        """
+        self.rivers.append(river)
+        self.next_order_river.tributaries += self.last_river
 
     @refresh_namelist
     def pop(self):
-        return self.rivers.pop()
+        """
+        When leaving the river bassin, we need to add its graph
+        to the graph of the next order river
+        """
+        self.last_river.finalize()
+        self.next_order_river.graph.add_edge(self.next_order_river, self.last_river.graph)
+        self.rivers.pop()
 
     def __contains__(self, river):
         # No river_names is typical for nameless rivers or
@@ -141,6 +216,8 @@ class RiverSystems(object):
 
         if fixtures:
             self.hanging_roots = [River(r) for r in fixtures["hanging_roots"]]
+        else:
+            self.hanging_roots = []
 
     def __len__(self):
         return len(self.roots)
@@ -161,7 +238,7 @@ class RiverSystems(object):
                 for p in self.root_signs),
             root in self.hanging_roots,
         )
-        return any(conditions) and not root in self.roots
+        return any(conditions) and root not in self.roots
 
     def _add_root(self, river, dest, forced=False):
         if not dest.lost or forced:
@@ -191,7 +268,7 @@ root? [y/n]""".format(river, dest)
 
     def _create_root(self, root, push_root=True):
         print("Creating new root for '{}'...".format(root))
-        self.roots[root] = RiverStack()
+        self.roots[root] = RiverStack(root)
         self.active_root = root
         if push_root:
             self.roots[root].push(root)
@@ -226,6 +303,14 @@ root? [y/n]""".format(river, dest)
                 target_stack.pop()
             target_stack.push(river)
 
+
     @property
     def active_system(self):
         return self.active_root, self.roots[self.active_root]
+
+    def draw_all(self):
+        for river, river_stack in self.roots.items():
+            pass
+
+
+
