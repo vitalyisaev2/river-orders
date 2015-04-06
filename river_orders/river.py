@@ -4,7 +4,7 @@ import itertools
 import pprint
 import collections
 from distutils.util import strtobool
-from operator import attrgetter
+# from operator import attrgetter
 
 import networkx
 import matplotlib
@@ -33,8 +33,7 @@ class River(object):
         self.multiname = True if len(self.names) > 1 else False
         self.length = length
         self.dest_from_end = dest_from_end
-        self.tributaries = Tributaries()
-        self.G = networkx.Graph()
+        # self.tributaries = Tributaries()
 
         if index:
             main_name = self.names[0] if self.multiname else _name
@@ -80,24 +79,24 @@ class River(object):
         return self.name.__hash__()
 
 
-class Tributaries(object):
+# class Tributaries(object):
 
-    def __init__(self):
-        self.tribs = []
+    # def __init__(self):
+        # self.tribs = []
 
-    def add(self, other):
-        if isinstance(other, River):
-            self.tribs.append(other)
-        else:
-            raise Exception("'{}' is instance of '{}' while River was expected".format(
-                other, other.__class__.__name__))
+    # def add(self, other):
+        # if isinstance(other, River):
+        # self.tribs.append(other)
+        # else:
+        # raise Exception("'{}' is instance of '{}' while River was expected".format(
+        # other, other.__class__.__name__))
 
-    def __len__(self):
-        return len(self.tribs)
+    # def __len__(self):
+        # return len(self.tribs)
 
-    @property
-    def sorted_graph(self):
-        return map(lambda t: t.graph, sorted(self.tribs, key=attrgetter('dest_from_end')))
+    # @property
+    # def sorted_graph(self):
+        # return map(lambda t: t.graph, sorted(self.tribs, key=attrgetter('dest_from_end')))
 
 
 class RiverStack(list):
@@ -110,7 +109,7 @@ class RiverStack(list):
         self.rivers = []
 
         # initialize river network graph
-        self.G = networkx.Graph()
+        self.DG = networkx.DiGraph()
 
     def __str__(self):
         if self.rivers:
@@ -144,7 +143,7 @@ class RiverStack(list):
 
     @property
     def graph(self):
-        return self.G
+        return self.DG
 
     @refresh_namelist
     def push(self, river):
@@ -153,9 +152,9 @@ class RiverStack(list):
         it's stored in the tributary list of the next order river
         """
         self.rivers.append(river)
-        self.G.add_node(river)
+        self.DG.add_node(river)
         if len(self) > 1:
-            self.G.add_edge(self.next_order_river, self.last_river)
+            self.DG.add_edge(self.last_river, self.next_order_river)
 
     @refresh_namelist
     def pop(self):
