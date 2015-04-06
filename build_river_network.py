@@ -95,7 +95,7 @@ def main():
     rs = construct(df, fixtures=fixtures)
     print("Current river systems: ")
     print(rs)
-    rs.draw_all()
+    rs.draw()
 
 if __name__ == "__main__":
     main()

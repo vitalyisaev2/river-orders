@@ -10,10 +10,12 @@ RUN apt-get -y update
 RUN apt-get -y install python3-pip
 RUN apt-get -y install python3-pandas
 RUN apt-get -y install python3-yaml
+RUN apt-get -y install graphviz
 
 RUN pip3 install networkx 
 RUN pip3 install ipython 
 RUN pip3 install ipdb 
+RUN pip3 install graphviz
 
 RUN locale-gen en_US.UTF-8
 ENV LANG en_US.UTF-8  
@@ -26,3 +28,4 @@ VOLUME ["/home/hydrologist/project"]
 WORKDIR /home/hydrologist/project
 
 USER hydrologist
+#USER root

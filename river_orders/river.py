@@ -4,12 +4,9 @@ import itertools
 import pprint
 import collections
 from distutils.util import strtobool
-# from operator import attrgetter
 
 import networkx
-import matplotlib
-matplotlib.use('Agg')
-import matplotlib.pyplot as plt
+import graphviz
 
 from .naming import NameSuggestion
 
@@ -79,37 +76,45 @@ class River(object):
         return self.name.__hash__()
 
 
-# class Tributaries(object):
+class DirectedGraph(object):
 
-    # def __init__(self):
-        # self.tribs = []
+    """
+    Mixin class that provides a Networkx storage for river
+    networks.
 
-    # def add(self, other):
-        # if isinstance(other, River):
-        # self.tribs.append(other)
-        # else:
-        # raise Exception("'{}' is instance of '{}' while River was expected".format(
-        # other, other.__class__.__name__))
+    Since pygraphviz doesn't work with Python3, we'll need to
+    draw graph manually with graphviz.
+    """
 
-    # def __len__(self):
-        # return len(self.tribs)
+    def __init__(self, name):
+        self.name = name
+        self.dot = graphviz.Digraph()
+        self.DG = networkx.DiGraph()
 
-    # @property
-    # def sorted_graph(self):
-        # return map(lambda t: t.graph, sorted(self.tribs, key=attrgetter('dest_from_end')))
+    def add_node(self):
+
+        self.DG.add_node(self.last_river)
+        self.dot.node(self.last_river.name)
+
+        if len(self) > 1:
+            self.DG.add_edge(self.last_river, self.next_order_river)
+            #self.dot.edge(self.last_river.name, self.next_order_river.name)
+            self.dot.edge(self.next_order_river.name, self.last_river.name)
+
+    def draw(self):
+        print("Trying to render '{}' river bassin...".format(self.name))
+        self.dot.render('{}'.format(self.name))
 
 
-class RiverStack(list):
+class RiverStack(DirectedGraph):
 
     # FIXME: wanna have the only instance for NameSuggestion
     # for all the RiverStack instances. Is it correct?
     ns = NameSuggestion()
 
     def __init__(self, root):
+        super().__init__(root)
         self.rivers = []
-
-        # initialize river network graph
-        self.DG = networkx.DiGraph()
 
     def __str__(self):
         if self.rivers:
@@ -141,10 +146,6 @@ class RiverStack(list):
     def next_order_river(self):
         return self.rivers[-2]
 
-    @property
-    def graph(self):
-        return self.DG
-
     @refresh_namelist
     def push(self, river):
         """
@@ -152,9 +153,7 @@ class RiverStack(list):
         it's stored in the tributary list of the next order river
         """
         self.rivers.append(river)
-        self.DG.add_node(river)
-        if len(self) > 1:
-            self.DG.add_edge(self.last_river, self.next_order_river)
+        self.add_node()
 
     @refresh_namelist
     def pop(self):
@@ -293,12 +292,8 @@ root? [y/n]""".format(river, dest)
     def active_system(self):
         return self.active_root, self.roots[self.active_root]
 
-    def draw_all(self):
-        for i, f in enumerate((networkx.draw, networkx.draw_random, networkx.draw_circular, networkx.draw_spectral)):
-            for river, river_stack in self.roots.items():
-                fname = river.name + str(i) + ".png"
-                print("Trying to dump {} network graph to '{}'".format(river, fname))
-                f(river_stack.graph)
-                plt.savefig(fname)
-                plt.clf()
+    def draw(self):
+        for _, rs in self.roots.items():
+            rs.draw()
+            if __debug__:
                 break
