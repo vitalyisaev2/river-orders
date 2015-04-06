@@ -4,6 +4,7 @@ import itertools
 import pprint
 import collections
 from distutils.util import strtobool
+from operator import attrgetter
 
 import networkx
 import graphviz
@@ -86,24 +87,51 @@ class DirectedGraph(object):
     draw graph manually with graphviz.
     """
 
-    def __init__(self, name):
-        self.name = name
+    def __init__(self, root):
+        self.root = root
         self.dot = graphviz.Digraph()
         self.DG = networkx.DiGraph()
 
     def add_node(self):
-
         self.DG.add_node(self.last_river)
-        self.dot.node(self.last_river.name)
+        # self.dot.node(self.last_river.name)
 
         if len(self) > 1:
             self.DG.add_edge(self.last_river, self.next_order_river)
-            #self.dot.edge(self.last_river.name, self.next_order_river.name)
-            self.dot.edge(self.next_order_river.name, self.last_river.name)
+            # self.dot.edge(self.last_river.name, self.next_order_river.name)
+
+    def _pairwise(self, tributaries):
+        tr1, tr2 = itertools.tee(tributaries)
+        next(tr2, None)
+        return zip(tr1, tr2)
+
+    def _render_bassin(self, river_node):
+        # If this is a fist order river, nothing to draw
+        print(river_node, self.DG.predecessors(river_node))
+        if len(self.DG.predecessors(river_node)) == 0:
+            return
+
+        # Preparing list of tributaries
+        tributaries = sorted(self.DG.predecessors(river_node),
+                             key=attrgetter('dest_from_end'))
+        tributaries.insert(0, river_node)
+
+        for rn1, rn2 in self._pairwise(tributaries):
+            self.dot.node(rn2.name)
+            self.dot.edge(rn2.name, rn1.name)
+
+        for tributary in self.DG.predecessors(river_node):
+            return self._render_bassin(tributary)
 
     def draw(self):
-        print("Trying to render '{}' river bassin...".format(self.name))
-        self.dot.render('{}'.format(self.name))
+        print("Trying to render '{}' river bassin...".format(self.root.name))
+
+        # Draw graph from the river of the highest order
+        self.dot.node(self.root.name)
+        self._render_bassin(self.root)
+
+        # Save to file
+        self.dot.render('{}'.format(self.root.name))
 
 
 class RiverStack(DirectedGraph):

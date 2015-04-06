@@ -17,6 +17,7 @@ from river_orders.river import River, RiverSystems
 if __debug__:
     pd.set_option('display.width', 160)
     _df = None
+    _rs = None
 
 
 def prepare(df):
@@ -88,14 +89,17 @@ def main():
     else:
         fixtures = None
 
-    if __debug__:
-        global _df
-        _df = df
-
     rs = construct(df, fixtures=fixtures)
+
+    if __debug__:
+        global _df, _rs
+        _df = df
+        _rs = rs
+
     print("Current river systems: ")
     print(rs)
     rs.draw()
+
 
 if __name__ == "__main__":
     main()
