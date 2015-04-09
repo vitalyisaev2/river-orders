@@ -1,8 +1,9 @@
 #! -*- coding: utf8 -*-
 import re
-import itertools
+from itertools import tee, chain
 import pprint
 import collections
+import traceback
 from distutils.util import strtobool
 from operator import attrgetter
 
@@ -97,41 +98,69 @@ class DirectedGraph(object):
         # self.dot.node(self.last_river.name)
 
         if len(self) > 1:
+            assert self.last_river != self.next_order_river, \
+                "Possible cycle: {} -> {}".format(self.last_river, self.next_order_river)
             self.DG.add_edge(self.last_river, self.next_order_river)
             # self.dot.edge(self.last_river.name, self.next_order_river.name)
 
-    def _pairwise(self, tributaries):
-        tr1, tr2 = itertools.tee(tributaries)
-        next(tr2, None)
-        return zip(tr1, tr2)
+    def graph_elements(self, river, tributaries):
+        trib, trib_prev, trib_next = tee(tributaries, 3)
+
+        # Make list of `confluence nodes`
+        next(trib_next, None)
+        confluenced = (t1.name + "_" + t2.name for (t1, t2) in zip(trib_prev, trib_next))
+
+        # Create nodes
+        mainline_node_names, mn1, mn2 = tee(chain([river.name], confluenced), 3)
+        sideline_node_names, sn1 = tee(t.name for t in trib)
+        next(mainline_node_names, None)
+
+        # Create pairwise edges on the main line
+        mn1_prev, mn1_next = tee(mn1)
+        next(mn1_next, None)
+        mainline_edges = zip(mn1_next, mn1_prev)
+
+        # Create edges on the side lines
+        next(mn2, None)
+        sideline_edges = zip(sn1, mn2)
+
+        edge_names = chain(mainline_edges, sideline_edges)
+        return mainline_node_names, sideline_node_names, edge_names
 
     def _render_bassin(self, river_node):
         # If this is a fist order river, nothing to draw
-        print(river_node, self.DG.predecessors(river_node))
+        # print(river_node, self.DG.predecessors(river_node))
         if len(self.DG.predecessors(river_node)) == 0:
             return
 
         # Preparing list of tributaries
         tributaries = sorted(self.DG.predecessors(river_node),
                              key=attrgetter('dest_from_end'))
-        tributaries.insert(0, river_node)
 
-        for rn1, rn2 in self._pairwise(tributaries):
-            self.dot.node(rn2.name)
-            self.dot.edge(rn2.name, rn1.name)
+        mainline, sideline, edges = self.graph_elements(river_node, tributaries)
+        for node_name in mainline:
+            self.dot.node(node_name, shape="point")
+        for node_name in sideline:
+            self.dot.node(node_name)
+        for (trib, dest) in edges:
+            self.dot.edge(trib, dest)
 
         for tributary in self.DG.predecessors(river_node):
-            return self._render_bassin(tributary)
+            print(river_node, "<-", tributary)
+            self._render_bassin(tributary)
 
     def draw(self):
         print("Trying to render '{}' river bassin...".format(self.root.name))
 
         # Draw graph from the river of the highest order
         self.dot.node(self.root.name)
-        self._render_bassin(self.root)
-
-        # Save to file
-        self.dot.render('{}'.format(self.root.name))
+        try:
+            self._render_bassin(self.root)
+        except RuntimeError:
+            traceback.format_exc()
+        finally:
+            # Save to file
+            self.dot.render('{}'.format(self.root.name))
 
 
 class RiverStack(DirectedGraph):
@@ -162,7 +191,7 @@ class RiverStack(DirectedGraph):
     def refresh_namelist(f):
         def wrapper(self, *args):
             res = f(self, *args)
-            self.river_names = list(itertools.chain(*(r.names for r in self.rivers)))
+            self.river_names = list(chain(*(r.names for r in self.rivers)))
             return res
         return wrapper
 
