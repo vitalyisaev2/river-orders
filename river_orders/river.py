@@ -95,13 +95,11 @@ class DirectedGraph(object):
 
     def add_node(self):
         self.DG.add_node(self.last_river)
-        # self.dot.node(self.last_river.name)
-
         if len(self) > 1:
-            assert self.last_river != self.next_order_river, \
-                "Possible cycle: {} -> {}".format(self.last_river, self.next_order_river)
             self.DG.add_edge(self.last_river, self.next_order_river)
-            # self.dot.edge(self.last_river.name, self.next_order_river.name)
+            if __debug__:
+                cycles = list(networkx.simple_cycles(self.DG))
+                assert len(cycles) == 0, "Cycles: {}".format(cycles)
 
     def graph_elements(self, river, tributaries):
         trib, trib_prev, trib_next = tee(tributaries, 3)
@@ -146,7 +144,6 @@ class DirectedGraph(object):
             self.dot.edge(trib, dest)
 
         for tributary in self.DG.predecessors(river_node):
-            print(river_node, "<-", tributary)
             self._render_bassin(tributary)
 
     def draw(self):
@@ -316,7 +313,7 @@ root? [y/n]""".format(river, dest)
             self.roots[root].push(root)
 
     def _add_tributary(self, river, dest):
-        print("Adding tributary '{river}' for dest '{dest}'".format(**locals()))
+        print("\nAdding tributary '{river}' for dest '{dest}'".format(**locals()))
         self.active_root = None
         target_stack = None
 
@@ -352,5 +349,4 @@ root? [y/n]""".format(river, dest)
     def draw(self):
         for _, rs in self.roots.items():
             rs.draw()
-            if __debug__:
-                break
+            break
