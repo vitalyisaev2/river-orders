@@ -11,7 +11,6 @@ import graphviz
 
 from .naming import NameSuggestion
 
-
 _lost = ('^теряется$', '^разбирается на орошение$')
 
 
@@ -25,12 +24,18 @@ class River(object):
     _lost_patterns = [re.compile(p) for p in _lost]
     _nameless_pattern = re.compile(r'без названия')
 
-    def __init__(self, _name, length=0, dest_from_end=0, index=None, **kwargs):
+    def __init__(self, _name, length=0, dest_from_end=0, ten_km_trib_amount=0.0,
+                 index=None, **kwargs):
+        assert isinstance(ten_km_trib_amount, float), \
+            "index {} - ten_km_trib_amount {} ({})".format(
+                index, ten_km_trib_amount, type(ten_km_trib_amount))
+
         self.names = list(filter(lambda x: len(x) > 0,
                                  [n.strip() for n in self._split_pattern.split(_name)]))
         self.multiname = True if len(self.names) > 1 else False
         self.length = length
         self.dest_from_end = dest_from_end
+        self.ten_km_trib_amount = ten_km_trib_amount
 
         if index:
             main_name = self.names[0] if self.multiname else _name
@@ -98,7 +103,11 @@ class DirectedGraph(object):
             self.DG.add_edge(self.last_river.indexed_name,
                              self.next_order_river.indexed_name)
 
-    def graph_elements(self, river_node_name, tributaries):
+    def estimate_orders(self):
+        pass
+
+    @staticmethod
+    def graph_elements(river_node_name, tributaries):
         trib, trib_prev, trib_next = tee(tributaries, 3)
 
         # Make list of `confluence nodes`
