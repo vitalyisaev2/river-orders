@@ -4,6 +4,8 @@ MAINTAINER Vitaly Isaev <vitalyisaev2@gmail.com>
 
 ENV DEBIAN_FRONTEND noninteractive
 
+ENV REFRESHED_AT 12.4.2015
+
 RUN sed -i.bak 's/http:\/\/archive.ubuntu.com\/ubuntu\//mirror:\/\/mirrors.ubuntu.com\/mirrors.txt\//g' /etc/apt/sources.list
 RUN apt-get -y update
 
@@ -11,6 +13,7 @@ RUN apt-get -y install python3-pip
 RUN apt-get -y install python3-pandas
 RUN apt-get -y install python3-yaml
 RUN apt-get -y install graphviz
+RUN apt-get -y install imagemagick
 
 RUN pip3 install networkx 
 RUN pip3 install ipython 

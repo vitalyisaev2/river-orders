@@ -31,7 +31,6 @@ class River(object):
         self.multiname = True if len(self.names) > 1 else False
         self.length = length
         self.dest_from_end = dest_from_end
-        # self.tributaries = Tributaries()
 
         if index:
             main_name = self.names[0] if self.multiname else _name
@@ -104,8 +103,8 @@ class DirectedGraph(object):
 
         # Make list of `confluence nodes`
         next(trib_next, None)
-        confluenced = (t1 + " - " + t2
-                       for (t1, t2) in zip(trib_prev, trib_next))
+        confluenced = [t1 + " - " + t2
+                       for (t1, t2) in zip(trib_prev, trib_next)]
 
         # Create nodes
         mainline_node_names, mn1, mn2 = tee(chain([river_node_name], confluenced), 3)
@@ -121,7 +120,13 @@ class DirectedGraph(object):
         next(mn2, None)
         sideline_edges = zip(sn1, mn2)
 
-        edge_names = chain(mainline_edges, sideline_edges)
+        # "Last/single tributary bug"
+        if len(confluenced) > 0:
+            edges = [mainline_edges, sideline_edges, [(tributaries[-1], confluenced[-1])]]
+        else:
+            edges = [[(tributaries[0], river_node_name)]]
+        edge_names = chain(*edges)
+
         return mainline_node_names, sideline_node_names, edge_names
 
     def _render_bassin(self, river_node_name):
@@ -136,17 +141,13 @@ class DirectedGraph(object):
 
         mainline, sideline, edges = self.graph_elements(river_node_name, tributaries)
         for node_name in mainline:
-            print(node_name)
             self.dot.node(node_name, shape="point")
         for node_name in sideline:
-            print(node_name)
             self.dot.node(node_name)
         for (trib, dest) in edges:
-            print(trib, dest)
             self.dot.edge(trib, dest)
 
-        for trib_name in self.DG.predecessors(river_node_name):
-            break
+        for trib_name in tributaries:
             self._render_bassin(trib_name)
 
     def draw(self):
