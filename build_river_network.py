@@ -44,9 +44,12 @@ def prepare(df):
 
     # 3. Convert strings to numbers
     def _str_to_numbers(col):
-        df.loc[df[col] == "—", col] = np.nan
+        try:
+            df.loc[df[col] == "—", col] = np.nan
+        except Exception as e:
+            print(col, e)
         df[col] = df[col].apply(float)
-    for col in ("ten_km_trib_amount",):
+    for col in ("ten_km_trib_amount", "length"):
         _str_to_numbers(col)
 
     return df
@@ -57,7 +60,7 @@ def construct(df, **kwargs):
 
     for index, r in df.iterrows():
         river = River(_name=r.river_full_name, index=index[1], **r)
-        dest = River(_name=r.river_dest, index=index[1], **r)
+        dest = River(_name=r.river_dest, index=index[1])
         try:
             rs.add_river(river, dest)
         except Exception:

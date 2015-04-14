@@ -6,6 +6,7 @@ import collections
 import traceback
 from distutils.util import strtobool
 
+from numpy import isnan, log2
 import networkx
 import graphviz
 
@@ -24,11 +25,9 @@ class River(object):
     _lost_patterns = [re.compile(p) for p in _lost]
     _nameless_pattern = re.compile(r'без названия')
 
-    def __init__(self, _name, length=0, dest_from_end=0, ten_km_trib_amount=0.0,
-                 index=None, **kwargs):
-        assert isinstance(ten_km_trib_amount, float), \
-            "index {} - ten_km_trib_amount {} ({})".format(
-                index, ten_km_trib_amount, type(ten_km_trib_amount))
+    def __init__(self, _name,
+                 length=0, dest_from_end=0, ten_km_trib_amount=0.0, index=None,
+                 **kwargs):
 
         self.names = list(filter(lambda x: len(x) > 0,
                                  [n.strip() for n in self._split_pattern.split(_name)]))
@@ -97,14 +96,46 @@ class DirectedGraph(object):
         self.DG = networkx.DiGraph()
 
     def add_node(self):
+        # TODO: the fact that we cannot use river as a node
+        # is very annoying. Need to modify hashing
         self.DG.add_node(self.last_river.indexed_name,
-                         dest_from_end=self.last_river.dest_from_end)
+                         length=self.last_river.length,
+                         dest_from_end=self.last_river.dest_from_end,
+                         ten_km_trib_amount=self.last_river.ten_km_trib_amount)
         if len(self) > 1:
             self.DG.add_edge(self.last_river.indexed_name,
                              self.next_order_river.indexed_name)
 
-    def estimate_orders(self):
-        pass
+    def _set_node_order(self, river_node_name, ten_km_trib_amount):
+        self.DG.node[river_node_name]['ten_km_trib_amount'] = ten_km_trib_amount
+        self.DG.node[river_node_name]['order'] = log2(ten_km_trib_amount) + 1.0
+
+    def _sum_small_tribs(self, river_node_name):
+        node_attrs = self.DG.node[river_node_name]
+        tributaries = self.DG.predecessors(river_node_name)
+
+        if len(tributaries) == 0:
+            if isnan(node_attrs["ten_km_trib_amount"]):
+                ten_km_trib_amount = 1.0
+            else:
+                ten_km_trib_amount = node_attrs["ten_km_trib_amount"]
+
+            #print("{}: ten_km_trib_amount {}".format(river_node_name, ten_km_trib_amount))
+            self._set_node_order(river_node_name, ten_km_trib_amount)
+            return ten_km_trib_amount
+
+        else:
+            ten_km_trib_recur_sum = sum(map(self._sum_small_tribs, tributaries))
+            #print("{}: ten_km_trib_recur_sum {}".format(river_node_name, ten_km_trib_recur_sum))
+            self._set_node_order(river_node_name, ten_km_trib_recur_sum)
+
+            return ten_km_trib_recur_sum
+
+
+    def order(self):
+        if __debug__:
+            print("Estimating river orders...")
+        self._sum_small_tribs(self.root.indexed_name)
 
     @staticmethod
     def graph_elements(river_node_name, tributaries):
@@ -162,8 +193,9 @@ class DirectedGraph(object):
     def draw(self):
         if __debug__:
             print("Checking river network graph...")
-            cycles = list(networkx.simple_cycles(self.DG))
-            assert len(cycles) == 0, "Cycles: {}".format(cycles)
+
+        cycles = list(networkx.simple_cycles(self.DG))
+        assert len(cycles) == 0, "Cycles: {}".format(cycles)
 
         print("Trying to render '{}' river bassin...".format(self.root.name))
 
@@ -367,5 +399,6 @@ root? [y/n]""".format(river, dest)
 
     def draw(self):
         for _, rs in self.roots.items():
+            rs.order()
             rs.draw()
             break
