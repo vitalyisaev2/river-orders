@@ -2,8 +2,8 @@
 import re
 from itertools import tee, chain
 import pprint
-import collections
 import traceback
+from collections import namedtuple, OrderedDict
 from distutils.util import strtobool
 
 from numpy import isnan, log2
@@ -13,6 +13,10 @@ import graphviz
 from .naming import NameSuggestion
 
 _lost = ('^теряется$', '^разбирается на орошение$')
+
+
+def scheidegger(ten_km_trib_amount):
+    return log2(ten_km_trib_amount) + 1.0
 
 
 class River(object):
@@ -80,6 +84,24 @@ class River(object):
         return self.name.__hash__()
 
 
+class GraphvizNode(namedtuple("GraphvizNode",
+                              ["name", "ten_km_trib_amount", "order"])):
+
+    @staticmethod
+    def from_confluence(DG, trib1, trib2):
+        name = trib1 + "_" + trib2
+        trib_sum = sum((DG.node[t]["ten_km_trib_amount"] for t in (trib1, trib2)))
+        return GraphvizNode(name=name,
+                            ten_km_trib_amount=trib_sum,
+                            order=scheidegger(trib_sum))
+
+    @staticmethod
+    def from_digraph_node(DG, name):
+        return GraphvizNode(name=name,
+                            ten_km_trib_amount=DG.node[name]["ten_km_trib_amount"],
+                            order=DG.node[name]["order"])
+
+
 class DirectedGraph(object):
 
     """
@@ -108,7 +130,7 @@ class DirectedGraph(object):
 
     def _set_node_order(self, river_node_name, ten_km_trib_amount):
         self.DG.node[river_node_name]['ten_km_trib_amount'] = ten_km_trib_amount
-        self.DG.node[river_node_name]['order'] = log2(ten_km_trib_amount) + 1.0
+        self.DG.node[river_node_name]['order'] = scheidegger(ten_km_trib_amount)
 
     def _sum_small_tribs(self, river_node_name):
         node_attrs = self.DG.node[river_node_name]
@@ -120,52 +142,86 @@ class DirectedGraph(object):
             else:
                 ten_km_trib_amount = node_attrs["ten_km_trib_amount"]
 
-            #print("{}: ten_km_trib_amount {}".format(river_node_name, ten_km_trib_amount))
+            # print("{}: ten_km_trib_amount {}".format(river_node_name, ten_km_trib_amount))
             self._set_node_order(river_node_name, ten_km_trib_amount)
             return ten_km_trib_amount
 
         else:
             ten_km_trib_recur_sum = sum(map(self._sum_small_tribs, tributaries))
-            #print("{}: ten_km_trib_recur_sum {}".format(river_node_name, ten_km_trib_recur_sum))
+            # print("{}: ten_km_trib_recur_sum {}".format(river_node_name, ten_km_trib_recur_sum))
             self._set_node_order(river_node_name, ten_km_trib_recur_sum)
 
             return ten_km_trib_recur_sum
-
 
     def order(self):
         if __debug__:
             print("Estimating river orders...")
         self._sum_small_tribs(self.root.indexed_name)
 
-    @staticmethod
-    def graph_elements(river_node_name, tributaries):
+    def graph_elements(self, river_node_name, tributaries):
         trib, trib_prev, trib_next = tee(tributaries, 3)
 
         # Make list of `confluence nodes`
         next(trib_next, None)
-        confluenced = [t1 + " - " + t2
-                       for (t1, t2) in zip(trib_prev, trib_next)]
+        # confluenced = [t1 + " - " + t2
+        #                for (t1, t2) in zip(trib_prev, trib_next)]
+        confluenced = [GraphvizNode.from_confluence(self.DG, t1, t2)
+                       for t1, t2 in zip(trib_prev, trib_next)]
 
         # Create nodes
-        mainline_node_names, mn1, mn2 = tee(chain([river_node_name], confluenced), 3)
-        sideline_node_names, sn1 = tee(t for t in trib)
-        next(mainline_node_names, None)
+        # mainline_node_names, mn1, mn2 = tee(chain([river_node_name], confluenced), 3)
+        # sideline_node_names, sn1 = tee(t for t in trib)
+        # next(mainline_node_names, None)
+        mainline_node_names = chain(
+            [GraphvizNode.from_digraph_node(self.DG, river_node_name)],
+            confluenced)
+        sideline_node_names = (GraphvizNode.from_digraph_node(self.DG, t) for t in trib)
+        mnn0, mnn1, mnn2 = tee(mainline_node_names, 3)
+        snn0, snn1 = tee(sideline_node_names)
+        next(mnn0, None)
 
         # Create pairwise edges on the main line
-        mn1_prev, mn1_next = tee(mn1)
-        next(mn1_next, None)
-        mainline_edges = zip(mn1_next, mn1_prev)
+        # mn1_prev, mn1_next = tee(mn1)
+        # next(mn1_next, None)
+        # mainline_edges = zip(mn1_next, mn1_prev)
+        mnn1_prev, mnn1_next = tee(mnn1)
+        next(mnn1_next, None)
+        mainline_edges = zip(mnn1_next, mnn1_prev)
+
+        # if __debug__:
+        #     ME, mainline_edges = tee(mainline_edges)
+        #     print(list(ME))
 
         # Create edges on the side lines
-        next(mn2, None)
-        sideline_edges = zip(sn1, mn2)
+        # next(mn2, None)
+        # sideline_edges = zip(sn1, mn2)
+        next(mnn2, None)
+        sideline_edges = zip(snn1, mnn2)
 
         # "Last/single tributary bug"
+        # if len(confluenced) > 0:
+        #     edges = [mainline_edges, sideline_edges, [(tributaries[-1], confluenced[-1])]]
+        # else:
+        #     edges = [[(tributaries[0], river_node_name)]]
+        # edge_names = chain(*edges)
         if len(confluenced) > 0:
-            edges = [mainline_edges, sideline_edges, [(tributaries[-1], confluenced[-1])]]
+            edges = [mainline_edges,
+                     sideline_edges,
+                     [
+                         (
+                             GraphvizNode.from_digraph_node(self.DG, tributaries[-1]),
+                             confluenced[-1]
+                         )
+                     ]]
         else:
-            edges = [[(tributaries[0], river_node_name)]]
-        edge_names = chain(*edges)
+            edge_ends = (tributaries[0], river_node_name)
+            edges = [[map(lambda x: GraphvizNode.from_digraph_node(self.DG, x),
+                          edge_ends)]]
+
+        edge_names = list(chain(*edges))
+        # if __debug__:
+        #     edge_names, deb = tee(edge_names)
+        #     print(list(deb))
 
         return mainline_node_names, sideline_node_names, edge_names
 
@@ -180,14 +236,28 @@ class DirectedGraph(object):
                              key=lambda name: self.DG.node[name]['dest_from_end'])
 
         mainline, sideline, edges = self.graph_elements(river_node_name, tributaries)
-        for node_name in mainline:
-            self.dot.node(node_name, shape="point")
-        for node_name in sideline:
-            self.dot.node(node_name)
-        for (trib, dest) in edges:
-            self.dot.edge(trib, dest)
+        # for node_name in mainline:
+        #     self.dot.node(node_name, shape="point")
+        # for node_name in sideline:
+        #     self.dot.node(node_name)
+        # for (trib, dest) in edges:
+        #     self.dot.edge(trib, dest)
+        print("mainline")
+        for n in mainline:
+            _order = str(n.order)[:4]
+            self.dot.node(n.name, shape="point", xlabel="ord: {}".format(_order))
+            #self.dot.node(n.name, shape="point")
+        print("sideline")
+        for s in sideline:
+            _order = str(s.order)[:4]
+            self.dot.node(s.name, xlabel="ord: {}".format(_order))
+            #self.dot.node(s.name)
+        print("edges")
+        for (t, d) in edges:
+            self.dot.edge(t.name, d.name)
 
         for trib_name in tributaries:
+            break
             self._render_bassin(trib_name)
 
     def draw(self):
@@ -301,7 +371,7 @@ class RiverSystems(object):
     _root_signs.extend(_lost)
 
     def __init__(self, fixtures=None):
-        self.roots = collections.OrderedDict()
+        self.roots = OrderedDict()
         self.root_signs = list(map(re.compile, self._root_signs))
 
         if fixtures:
