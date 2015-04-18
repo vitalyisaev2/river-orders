@@ -44,7 +44,8 @@ class DirectedGraph(object):
         self.DG.add_node(self.last_river.indexed_name,
                          length=self.last_river.length,
                          dest_from_end=self.last_river.dest_from_end,
-                         ten_km_trib_amount=self.last_river.ten_km_trib_amount)
+                         ten_km_trib_amount=self.last_river.ten_km_trib_amount,
+                         is_lake=self.last_river.is_lake)
         if len(self) > 1:
             self.DG.add_edge(self.last_river.indexed_name,
                              self.next_order_river.indexed_name)
@@ -110,7 +111,7 @@ class DirectedGraph(object):
 
         return confluenced
 
-    def graph_elements(self, river_node_name, tributaries):
+    def river_bassin_elements(self, river_node_name, tributaries):
         trib, trib_prev, trib_next = tee(tributaries, 3)
 
         # Make list of `confluence nodes`
@@ -152,23 +153,41 @@ class DirectedGraph(object):
 
         return mnn0, snn0, edge_names
 
+    def lake_bassin_elements(self, lake_node_name, tributaries):
+        lake_node = GraphvizNode.from_digraph_node(self.DG, lake_node_name)
+
+        sideline_node_names = (GraphvizNode.from_digraph_node(self.DG, t) for t in tributaries)
+        snn0, snn1 = tee(sideline_node_names)
+        edges = ((s, lake_node) for s in snn1)
+
+        return [], snn0, edges
+
     def _render_bassin(self, river_node_name):
         # If this is a fist order river, nothing to draw
         if len(self.DG.predecessors(river_node_name)) == 0:
             return
 
+        # Lake and river bassin rendering are differing
+        is_lake = self.DG.node[river_node_name]["is_lake"]
+
         # Preparing list of tributaries
         try:
-            tributaries = sorted(self.DG.predecessors(river_node_name),
-                                 key=lambda name: self.DG.node[name]['dest_from_end'])
-        except Exception:
+            if is_lake:
+                tributaries = self.DG.predecessors(river_node_name)
+                elements = self.lake_bassin_elements
+            else:
+                tributaries = sorted(self.DG.predecessors(river_node_name),
+                                     key=lambda name: self.DG.node[name]['dest_from_end'])
+                elements = self.river_bassin_elements
+        except TypeError:
             print("\tError while sorting {} tributaries: ".format(river_node_name))
             for tr in self.DG.predecessors(river_node_name):
                 print("\t\t", tr, self.DG.node[tr])
             traceback.print_exc()
             sys.exit(1)
 
-        mainline, sideline, edges = self.graph_elements(river_node_name, tributaries)
+        # Draw nodes and edges
+        mainline, sideline, edges = elements(river_node_name, tributaries)
         for n in mainline:
             self.draw_node(n, confluenced=True)
         for s in sideline:

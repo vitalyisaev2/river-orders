@@ -12,6 +12,13 @@ from .graph import DirectedGraph
 
 _lost = ('^теряется$', '^разбирается на орошение$')
 
+_lake_signs = (
+    r'^оз.\s+((Бол|Мал)\.\s+){0,1}([А-Я]{1}[а-яА-Я-]+)$',
+    r'^вдхр\.?\s+[А-Яа-я- .]+$',
+    r'^[С|c]тарица\s+р.\s+[А-Яа-я-]+$',
+    r'^оз.\s+(без\s+названия\s+){0,1}у\s+с\.\s+([А-Я]{1}[а-яА-Я-]+)$',
+)
+
 
 class River(object):
 
@@ -22,6 +29,7 @@ class River(object):
     _split_pattern = re.compile(r'[,)(]{1}')
     _lost_patterns = [re.compile(p) for p in _lost]
     _nameless_pattern = re.compile(r'без названия')
+    _lake_patterns = [re.compile(p) for p in _lake_signs]
 
     def __init__(self, _name,
                  length=0, dest_from_end=0, ten_km_trib_amount=0.0, index=None,
@@ -53,6 +61,10 @@ class River(object):
     @property
     def lost(self):
         return any(p.search(n) for p in self._lost_patterns for n in self.names)
+
+    @property
+    def is_lake(self):
+        return any(l.search(n) for l in self._lake_patterns for n in self.names)
 
     def __str__(self):
         if self.nameless:
@@ -159,17 +171,13 @@ class RiverSystems(object):
     initial data. This class is trying to keep track of every of them.
     """
 
-    _root_signs = [
-        r'^оз.\s+((Бол|Мал)\.\s+){0,1}([А-Я]{1}[а-яА-Я-]+)$',
-        r'^вдхр\.?\s+[А-Яа-я- .]+$',
-        r'^[С|c]тарица\s+р.\s+[А-Яа-я-]+$',
-        r'^оз.\s+(без\s+названия\s+){0,1}у\s+с\.\s+([А-Я]{1}[а-яА-Я-]+)$',
-    ]
+    _root_signs = []
     _root_signs.extend(_lost)
+    _root_signs.extend(_lake_signs)
 
     def __init__(self, fixtures=None):
         self.roots = OrderedDict()
-        self.root_signs = list(map(re.compile, self._root_signs))
+        self.root_signs = [re.compile(p) for p in self._root_signs]
 
         if fixtures:
             self.hanging_roots = [River(r) for r in fixtures["hanging_roots"]]
