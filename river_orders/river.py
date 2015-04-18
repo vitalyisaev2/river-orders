@@ -12,6 +12,7 @@ import graphviz
 
 from .naming import NameSuggestion
 
+
 _lost = ('^теряется$', '^разбирается на орошение$')
 
 
@@ -149,21 +150,39 @@ class DirectedGraph(object):
         self._sum_small_tribs(self.root.indexed_name)
 
     def gen_confluenced(self, trib_prev, trib_next):
-        first = next(trib_next, None)
-        last_confluence = GraphvizNode.from_digraph_node(self.DG, first)
-        for t1, t2 in reversed(list(zip(trib_prev, trib_next))):
-            name = t1 + "_" + t2
+        next(trib_next, None)
+        pair_list = reversed(list(zip(trib_prev, trib_next)))
+
+        confluenced = []
+
+        for t1, t2 in pair_list:
+
+            if len(confluenced) == 0:
+                last_confluence = GraphvizNode.from_digraph_node(self.DG, t1)
+                income = t2
+            else:
+                last_confluence = confluenced[-1]
+                income = t1
+
+            if len(confluenced) == 1:
+                pass
+
+            name = t1 + "__" + t2
             ten_km_trib_amount = last_confluence.ten_km_trib_amount + \
-                self.DG.node[t2]["ten_km_trib_amount"]
+                                 self.DG.node[income]["ten_km_trib_amount"]
             order = scheidegger(ten_km_trib_amount)
+
             # if __debug__:
-            #     msg = "name={}, {}+{}={}, order={}".format(
-            #         name, last_confluence.ten_km_trib_amount,
-            #         self.DG.node[t2]["ten_km_trib_amount"],
+            #     msg = "name={}, {}<-{}, {}+{}={}, order={}".format(
+            #         name, last_confluence.name, income,
+            #         last_confluence.ten_km_trib_amount, self.DG.node[income]["ten_km_trib_amount"],
             #         ten_km_trib_amount, order)
             #     print(msg)
-            last_confluence = GraphvizNode(name, ten_km_trib_amount, order)
-            yield last_confluence
+
+            confluenced.append(GraphvizNode(name, ten_km_trib_amount, order))
+
+        return confluenced
+
 
     def graph_elements(self, river_node_name, tributaries):
         trib, trib_prev, trib_next = tee(tributaries, 3)
