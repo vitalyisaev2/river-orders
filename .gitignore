@@ -55,3 +55,8 @@ docs/_build/
 
 # PyBuilder
 target/
+
+# Kiki
+*.jpg
+*.png
+*.pdf
