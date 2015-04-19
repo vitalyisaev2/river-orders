@@ -44,8 +44,10 @@ def prepare(df):
 
     # 3. Convert strings to numbers
     def _str_to_numbers(col):
+        print("Transforming '{}'...".format(col))
         try:
             df.loc[df[col] == "—", col] = np.nan
+            df.loc[df[col] == "-", col] = np.nan
         except Exception as e:
             print(col, e)
         df[col] = df[col].apply(float)
@@ -58,10 +60,10 @@ def prepare(df):
 def construct(df, **kwargs):
     rs = RiverSystems(**kwargs)
 
-    #for index, r in list(df.iterrows())[:140]:
+    #for index, r in df.iloc[5297:].iterrows():
     for index, r in df.iterrows():
         river = WaterObject(_name=r.river_full_name, index=index[1], **r)
-        dest = WaterObject(_name=r.river_dest, index=index[1])
+        dest = WaterObject(_name=r.river_dest)
         try:
             rs.add_river(river, dest)
         except Exception:
