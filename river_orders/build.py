@@ -17,6 +17,7 @@ _lost = ('^теряется$', '^разбирается на орошение$')
 _lake_signs = (
     r'^оз.\s+((Бол|Мал)\.\s+){0,1}([А-Я]{1}[а-яА-Я-]+)$',
     r'^вдхр\.?\s+[А-Яа-я- .]+$',
+    r'^[А-Яа-я- .]+\s+вдхр.(\s+р.\s[А-Яа-я- .]+){0,1}$',
     r'^[С|c]тарица\s+р.\s+[А-Яа-я-]+$',
     r'^оз.\s+(без\s+названия\s+){0,1}у\s+с\.\s+([А-Я]{1}[а-яА-Я-]+)$',
 )
@@ -184,12 +185,14 @@ class RiverSystems(object):
         self.roots = OrderedDict()
         self.root_signs = [re.compile(p) for p in self._root_signs]
 
-        self.hanging_roots = [WaterObject(r) for r in fixtures["hanging_roots"]] if \
-            fixtures else []
+        # Some large lakes and reservoirs are described like a distinct bassins
+        # while in fact they are part of large river system
+        hanging_roots = fixtures.get("hanging_roots", []) if fixtures else []
+        self.hanging_roots = [WaterObject(r) for r in hanging_roots]
 
         # Some large lakes and reservoirs are described like a distinct bassins
         # while in fact they are part of large river system
-        self.lake_tributaries = fixtures.get("lake_tributaries", {}) if \
+        self.lake_tributaries = fixtures.get("fake_roots", {}) if \
             fixtures else {}
 
     def __len__(self):

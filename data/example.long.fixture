@@ -1,6 +1,4 @@
-hanging_roots:
-    - Каба (Хаба)
-lake_tributaries:
+fake_roots:
     оз. Телецкое:
         dest: Бия
         dest_from_end: 301
@@ -16,4 +14,8 @@ lake_tributaries:
     вдхр. Верх. Ульбинское:
         dest: Мал. Ульба
         dest_from_end: 113
+        ten_km_trib_amount: 0
+    Каба:
+        dest: Черный Иртыш
+        dest_from_end: 3760
         ten_km_trib_amount: 0
