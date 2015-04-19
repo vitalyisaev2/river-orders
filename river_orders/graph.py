@@ -10,7 +10,10 @@ import graphviz
 
 
 def scheidegger(ten_km_trib_amount):
-    return log2(ten_km_trib_amount) + 1.0
+    if ten_km_trib_amount > 0.0:
+        return log2(ten_km_trib_amount) + 1.0
+    else:
+        return 1.0
 
 
 class GraphvizNode(namedtuple("GraphvizNode",
@@ -41,14 +44,24 @@ class DirectedGraph(object):
     def add_node(self):
         # TODO: the fact that we cannot use river as a node
         # is very annoying. Need to modify hashing
-        self.DG.add_node(self.last_river.indexed_name,
+        if self.last_river.is_lake:
+            last_node_name = self.last_river.name
+        else:
+            last_node_name = self.last_river.indexed_name
+
+        self.DG.add_node(last_node_name,
                          length=self.last_river.length,
                          dest_from_end=self.last_river.dest_from_end,
                          ten_km_trib_amount=self.last_river.ten_km_trib_amount,
                          is_lake=self.last_river.is_lake)
+
         if len(self) > 1:
-            self.DG.add_edge(self.last_river.indexed_name,
-                             self.next_order_river.indexed_name)
+            if self.next_order_river.is_lake:
+                next_order_node_name = self.next_order_river.name
+            else:
+                next_order_node_name = self.next_order_river.indexed_name
+            self.DG.add_edge(last_node_name,
+                             next_order_node_name)
 
     def _set_node_order(self, river_node_name, ten_km_trib_amount):
         self.DG.node[river_node_name]['ten_km_trib_amount'] = ten_km_trib_amount
@@ -69,6 +82,7 @@ class DirectedGraph(object):
 
         else:
             ten_km_trib_recur_sum = sum(map(self._sum_small_tribs, tributaries))
+            ten_km_trib_recur_sum += node_attrs['ten_km_trib_amount']
             self._set_node_order(river_node_name, ten_km_trib_recur_sum)
 
             return ten_km_trib_recur_sum
@@ -76,7 +90,10 @@ class DirectedGraph(object):
     def order(self):
         if __debug__:
             print("\tEstimating river orders...")
-        self._sum_small_tribs(self.root.indexed_name)
+        if self.root.is_lake:
+            self._sum_small_tribs(self.root.name)
+        else:
+            self._sum_small_tribs(self.root.indexed_name)
 
     def gen_confluenced(self, trib_prev, trib_next):
         next(trib_next, None)
@@ -223,7 +240,10 @@ class DirectedGraph(object):
         # Draw graph from the river of the highest order
         self.dot.node(self.root.indexed_name)
         try:
-            self._render_bassin(self.root.indexed_name)
+            if self.root.is_lake:
+                self._render_bassin(self.root.name)
+            else:
+                self._render_bassin(self.root.indexed_name)
         except RuntimeError:
             # Graph cycles cause endless recursion
             traceback.format_exc()

@@ -4,3 +4,4 @@ header="id;river_full_name;river_dest;side;dest_from_end;length;watershed_area;t
 
 sed -i '1i'$header $1
 sed -i 's/*//g' $1
+sed -i 's/вдхр\ /вдхр./g' $1

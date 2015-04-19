@@ -1,2 +1,19 @@
 hanging_roots:
     - Каба (Хаба)
+lake_tributaries:
+    оз. Телецкое:
+        dest: Бия
+        dest_from_end: 301
+        ten_km_trib_amount: 115
+    вдхр. Бухтарминское:
+        dest: Иртыш
+        dest_from_end: 3162
+        ten_km_trib_amount: 228
+    вдхр. Усть-Каменогорское:
+        dest: Иртыш
+        dest_from_end: 3091
+        ten_km_trib_amount: 53
+    вдхр. Верх. Ульбинское:
+        dest: Мал. Ульба
+        dest_from_end: 113
+        ten_km_trib_amount: 0

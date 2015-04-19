@@ -7,6 +7,8 @@ from itertools import chain
 from collections import OrderedDict
 from distutils.util import strtobool
 
+from numpy import isnan
+
 from .naming import NameSuggestion
 from .graph import DirectedGraph
 
@@ -20,7 +22,7 @@ _lake_signs = (
 )
 
 
-class River(object):
+class WaterObject(object):
 
     """
     Represents any strem hydrological object. Attempts to handle in a simple way
@@ -40,11 +42,11 @@ class River(object):
         self.multiname = True if len(self.names) > 1 else False
         self.length = length
         self.dest_from_end = dest_from_end
-        self.ten_km_trib_amount = ten_km_trib_amount
+        self.ten_km_trib_amount = ten_km_trib_amount if not isnan(ten_km_trib_amount) else 0.0
 
+        self.main_name = self.names[0] if self.multiname else _name
         if index:
-            main_name = self.names[0] if self.multiname else _name
-            self.indexed_name = '{} №{}'.format(main_name, index)
+            self.indexed_name = '{} №{}'.format(self.main_name, index)
             self.names.append(self.indexed_name)
 
     @property
@@ -78,16 +80,19 @@ class River(object):
         return str(self)
 
     def __eq__(self, other):
-        if isinstance(other, River):
+        if isinstance(other, WaterObject):
             return set(self.names).intersection(set(other.names))
         elif isinstance(other, str):
             return other in self.names
         else:
             raise Exception(
-                "Cannot compare River instance to {}".format(type(other)))
+                "Cannot compare WaterObject instance to {}".format(type(other)))
 
     def __hash__(self):
-        return self.name.__hash__()
+        if self.is_lake:
+            return self.main_name.__hash__()
+        else:
+            return self.name.__hash__()
 
 
 class RiverStack(DirectedGraph):
@@ -179,10 +184,13 @@ class RiverSystems(object):
         self.roots = OrderedDict()
         self.root_signs = [re.compile(p) for p in self._root_signs]
 
-        if fixtures:
-            self.hanging_roots = [River(r) for r in fixtures["hanging_roots"]]
-        else:
-            self.hanging_roots = []
+        self.hanging_roots = [WaterObject(r) for r in fixtures["hanging_roots"]] if \
+            fixtures else []
+
+        # Some large lakes and reservoirs are described like a distinct bassins
+        # while in fact they are part of large river system
+        self.lake_tributaries = fixtures.get("lake_tributaries", {}) if \
+            fixtures else {}
 
     def __len__(self):
         return len(self.roots)
@@ -191,26 +199,41 @@ class RiverSystems(object):
         return pprint.pformat(self.roots, indent=4)
 
     def add_river(self, river, dest):
-        if self._valid_root(dest):
+        root_kind = self._estimate_root(dest)
+        if not root_kind:
+            self._add_tributary(river, dest)
+        elif root_kind == "real":
             self._add_root(river, dest)
-        else:
+        elif root_kind == "fake":
+            self._add_fake_root(dest)
             self._add_tributary(river, dest)
 
-    def _valid_root(self, root):
-        conditions = (
+    def _estimate_root(self, root):
+        # Sometimes we can get faked roots (lakes or reservoirs)
+        # so we need to check the fixtures first
+        fake_root_conditions = (
+            root.name in self.lake_tributaries,
+            not any(root in stack for stack in self.roots.values())
+        )
+        real_root_conditions = (
             len(self) == 0,
-            any(p.match(name) for name in root.names
-                for p in self.root_signs),
+            any(p.match(name) for name in root.names for p in self.root_signs),
             root in self.hanging_roots,
         )
-        return any(conditions) and root not in self.roots
+        if all(fake_root_conditions):
+            return "fake"
+        else:
+            if any(real_root_conditions) and root not in self.roots and not self._river_exists(root):
+                return "real"
+            else:
+                return False
 
     def _add_root(self, river, dest, forced=False):
         if not dest.lost or forced:
             self._create_root(dest)
             self.roots[dest].push(river)
         else:
-            self._create_root(river, push_root=True)
+            self._create_root(river)
 
     def _add_root_manually(self, river, dest):
         warning = """
@@ -231,15 +254,23 @@ root? [y/n]""".format(river, dest)
                 else:
                     return False
 
-    def _create_root(self, root, push_root=True):
+    def _create_root(self, root):
+        # All fences are passed: that's really new river system
         print("Creating new root for '{}'...".format(root))
         self.roots[root] = RiverStack(root)
         self.active_root = root
-        if push_root:
-            self.roots[root].push(root)
+        self.roots[root].push(root)
+
+    def _add_fake_root(self, root):
+        print("Fake root detected: {}".format(root))
+        fake_root_info = self.lake_tributaries[root]
+        dest = WaterObject(fake_root_info["dest"])
+        root.ten_km_trib_amount = fake_root_info["ten_km_trib_amount"]
+        root.dest_from_end = fake_root_info["dest_from_end"]
+        self._add_tributary(root, dest)
 
     def _add_tributary(self, river, dest):
-        print("\nAdding tributary '{river}' for dest '{dest}'".format(**locals()))
+        print("Adding tributary '{river}' for dest '{dest}'".format(**locals()))
         self.active_root = None
         target_stack = None
 
@@ -271,6 +302,9 @@ root? [y/n]""".format(river, dest)
     @property
     def active_system(self):
         return self.active_root, self.roots[self.active_root]
+
+    def _river_exists(self, river):
+        return any(river in stack for _, stack in self.roots.items())
 
     def draw(self):
         for root, rs in self.roots.items():

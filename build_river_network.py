@@ -12,7 +12,7 @@ import pandas as pd
 import numpy as np
 import yaml
 
-from river_orders.river import River, RiverSystems
+from river_orders.build import WaterObject, RiverSystems
 
 if __debug__:
     pd.set_option("display.width", 160)
@@ -49,7 +49,7 @@ def prepare(df):
         except Exception as e:
             print(col, e)
         df[col] = df[col].apply(float)
-    for col in ("ten_km_trib_amount", "length"):
+    for col in ("ten_km_trib_amount", "length", "dest_from_end"):
         _str_to_numbers(col)
 
     return df
@@ -58,9 +58,10 @@ def prepare(df):
 def construct(df, **kwargs):
     rs = RiverSystems(**kwargs)
 
+    #for index, r in list(df.iterrows())[:140]:
     for index, r in df.iterrows():
-        river = River(_name=r.river_full_name, index=index[1], **r)
-        dest = River(_name=r.river_dest, index=index[1])
+        river = WaterObject(_name=r.river_full_name, index=index[1], **r)
+        dest = WaterObject(_name=r.river_dest, index=index[1])
         try:
             rs.add_river(river, dest)
         except Exception:
