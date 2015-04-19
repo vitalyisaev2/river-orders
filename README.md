@@ -18,5 +18,5 @@ In [1]: %run build_river_network.py data/example.long.csv -f data/example.long.f
 #### Examples
 Upstream Ob river bassin:
 ![](http://s019.radikal.ru/i600/1504/6b/be24302c3f2a.png)
-![](http://s019.radikal.ru/i613/1504/07/80e0013f0de0.png)
+![](http://s61.radikal.ru/i171/1504/d1/7ab1f7bcf0db.jpg)
 
