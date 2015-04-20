@@ -41,7 +41,8 @@ class WaterObject(object):
     _lake_patterns = [re.compile(p) for p in _lake_signs]
 
     def __init__(self, _name,
-                 length=0, dest_from_end=0, ten_km_trib_amount=0.0, index=None,
+                 length=0, dest_from_end=0, ten_km_trib_amount=0.0,
+                 volume=None, index=None,
                  **kwargs):
 
         self.names = list(filter(lambda x: len(x) > 0,
@@ -52,11 +53,12 @@ class WaterObject(object):
         self.ten_km_trib_amount = ten_km_trib_amount if not isnan(ten_km_trib_amount) else 0.0
 
         self.main_name = self.names[0] if self.multiname else _name
-        if index:
+        if index and volume:
             self.indexed_name = '{} №{}'.format(self.main_name, index)
             self.names.append(self.indexed_name)
+            self.volume_indexed_name = '{} {}/{}'.format(self.main_name, volume, index)
         else:
-            self.indexed_name = self.main_name
+            self.indexed_name = self.volume_indexed_name = self.main_name
 
     @property
     def name(self):

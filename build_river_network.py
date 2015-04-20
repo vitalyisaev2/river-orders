@@ -32,7 +32,7 @@ def prepare(df):
 
     df.insert(1, "river_id", df[~pd.isnull(df[nan_values]).all(1)]["id"])
     df = df[~pd.isnull(df["river_id"])]
-    df.set_index(["region", "river_id"], inplace=True, drop=True)
+    df.set_index(["volume", "river_id"], inplace=True, drop=True)
     del df["id"]
 
     # 2. Fill downwards "»" values
@@ -60,9 +60,9 @@ def prepare(df):
 def construct(df, **kwargs):
     rs = RiverSystems(**kwargs)
 
-    #for index, r in df.iloc[5297:].iterrows():
+    # for index, r in df.iloc[5297:].iterrows():
     for index, r in df.iterrows():
-        river = WaterObject(_name=r.river_full_name, index=index[1], **r)
+        river = WaterObject(_name=r.river_full_name, volume=index[0], index=index[1], **r)
         dest = WaterObject(_name=r.river_dest)
         try:
             rs.add_river(river, dest)

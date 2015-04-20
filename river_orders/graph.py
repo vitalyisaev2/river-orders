@@ -47,7 +47,7 @@ class DirectedGraph(object):
         if self.last_river.is_lake:
             last_node_name = self.last_river.name
         else:
-            last_node_name = self.last_river.indexed_name
+            last_node_name = self.last_river.volume_indexed_name
 
         self.DG.add_node(last_node_name,
                          length=self.last_river.length,
@@ -59,7 +59,7 @@ class DirectedGraph(object):
             if self.next_order_river.is_lake:
                 next_order_node_name = self.next_order_river.name
             else:
-                next_order_node_name = self.next_order_river.indexed_name
+                next_order_node_name = self.next_order_river.volume_indexed_name
             self.DG.add_edge(last_node_name,
                              next_order_node_name)
 
@@ -93,7 +93,7 @@ class DirectedGraph(object):
         if self.root.is_lake:
             self._sum_small_tribs(self.root.name)
         else:
-            self._sum_small_tribs(self.root.indexed_name)
+            self._sum_small_tribs(self.root.volume_indexed_name)
 
     def gen_confluenced(self, trib_prev, trib_next):
         next(trib_next, None)
@@ -227,23 +227,29 @@ class DirectedGraph(object):
             self.dot.node(node.name,
                           label.format(node.name, trib_amount, order))
 
-    def draw(self):
-        if __debug__:
-            print("\tChecking river network graph...")
-
+    def check_graph(self):
+        print("\tChecking river network graph...")
+        # Looping is serious error
         cycles = list(networkx.simple_cycles(self.DG))
         assert len(cycles) == 0, "Cycles: {}".format(cycles)
 
-        if __debug__:
-            print("\tRendering...")
+        # Now we need to be sure, that every river flows to the only
+        # destination
+        for n in self.DG.nodes_iter():
+            succesors = self.DG.successors(n)
+            assert (len(succesors) <= 1), "Node: {}; succesors: {}".format(n, succesors)
 
+
+    def draw(self):
+        self.check_graph()
         # Draw graph from the river of the highest order
-        self.dot.node(self.root.indexed_name)
+        print("\tRendering...")
+        self.dot.node(self.root.volume_indexed_name)
         try:
             if self.root.is_lake:
                 self._render_bassin(self.root.name)
             else:
-                self._render_bassin(self.root.indexed_name)
+                self._render_bassin(self.root.volume_indexed_name)
         except RuntimeError:
             # Graph cycles cause endless recursion
             traceback.format_exc()
@@ -251,6 +257,5 @@ class DirectedGraph(object):
             # Save to file
             fname = '{}'.format(self.root.name + ".dot")
             path = os.path.join(os.path.dirname(sys.argv[0]), "pictures", fname)
-            if __debug__:
-                print("\tSaving to {}...".format(path))
-            self.dot.render(path)
+            print("\tSaving to {}...".format(path))
+            self.dot.save(path)
