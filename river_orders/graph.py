@@ -38,7 +38,7 @@ class DirectedGraph(object):
 
     def __init__(self, root):
         self.root = root
-        self.dot = graphviz.Digraph()
+        self.dot = graphviz.Digraph(format='svg')
         self.DG = networkx.DiGraph()
 
     def add_node(self):
