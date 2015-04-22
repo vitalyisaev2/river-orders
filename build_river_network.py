@@ -37,7 +37,7 @@ def prepare(df):
 
     # 2. Fill downwards "»" values
     def _fill(col):
-        df.loc[df[col] == "»", col] = np.nan
+        df.loc[[x in ("«", "»") for x in df[col]], col] = np.nan
         df[col] = df[col].ffill()
     for col in ("river_dest", "side"):
         _fill(col)
@@ -78,7 +78,7 @@ def construct(df, **kwargs):
 
 def parse_options():
     parser = argparse.ArgumentParser()
-    parser.add_argument("datafile", help="Csv file with initial data",
+    parser.add_argument("datafile", help="CSV file with initial data",
                         type=str)
     parser.add_argument("-f", "--fixture", help="List of fixtures", type=str)
     args = parser.parse_args()
