@@ -44,7 +44,7 @@ class DirectedGraph(object):
     def add_node(self):
         # TODO: the fact that we cannot use river as a node
         # is very annoying. Need to modify hashing
-        if self.last_river.is_lake:
+        if self.last_river.is_lake or self.last_river.is_sea:
             last_node_name = self.last_river.name
         else:
             last_node_name = self.last_river.volume_indexed_name
@@ -53,10 +53,11 @@ class DirectedGraph(object):
                          length=self.last_river.length,
                          dest_from_end=self.last_river.dest_from_end,
                          ten_km_trib_amount=self.last_river.ten_km_trib_amount,
-                         is_lake=self.last_river.is_lake)
+                         is_lake=self.last_river.is_lake,
+                         is_sea=self.last_river.is_sea)
 
         if len(self) > 1:
-            if self.next_order_river.is_lake:
+            if self.last_river.is_lake or self.last_river.is_sea:
                 next_order_node_name = self.next_order_river.name
             else:
                 next_order_node_name = self.next_order_river.volume_indexed_name
@@ -186,10 +187,13 @@ class DirectedGraph(object):
 
         # Lake and river bassin rendering are differing
         is_lake = self.DG.node[river_node_name]["is_lake"]
+        is_sea = self.DG.node[river_node_name]["is_sea"]
+        if is_sea:
+            print("--------SEA NODE RENDERING {}--------".format(river_node_name))
 
         # Preparing list of tributaries
         try:
-            if is_lake:
+            if is_lake or is_sea:
                 tributaries = self.DG.predecessors(river_node_name)
                 elements = self.lake_bassin_elements
             else:
@@ -239,14 +243,13 @@ class DirectedGraph(object):
             succesors = self.DG.successors(n)
             assert (len(succesors) <= 1), "Node: {}; succesors: {}".format(n, succesors)
 
-
     def draw(self):
         self.check_graph()
         # Draw graph from the river of the highest order
         print("\tRendering...")
         self.dot.node(self.root.volume_indexed_name)
         try:
-            if self.root.is_lake:
+            if self.root.is_lake or self.root.is_sea:
                 self._render_bassin(self.root.name)
             else:
                 self._render_bassin(self.root.volume_indexed_name)

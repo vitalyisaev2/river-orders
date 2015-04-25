@@ -60,9 +60,11 @@ def prepare(df):
 def construct(df, **kwargs):
     rs = RiverSystems(**kwargs)
 
-    # for index, r in df.iloc[5297:].iterrows():
     for index, r in df.iterrows():
-        river = WaterObject(_name=r.river_full_name, volume=index[0], index=index[1], **r)
+        volume = index[0]
+        assert(isinstance(volume, str)), "{}: wrong volume: {}".format(r, volume)
+
+        river = WaterObject(_name=r.river_full_name, volume=volume, index=index[1], **r)
         dest = WaterObject(_name=r.river_dest)
         try:
             rs.add_river(river, dest)

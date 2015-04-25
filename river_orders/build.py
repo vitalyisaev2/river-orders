@@ -28,6 +28,13 @@ _lake_signs = (
     r'^оз\.?\s+(без\s+названия)?\s?(у\s+с\.\s+([а-яА-Я- ]+))?(№\s?\d+)?$',
 )
 
+_sea_signs = (
+    r'^[А-Яа-я-]+\s*море$',
+    r'^[А-Яа-я-]+\s*залив$',
+    r'^залив\s+[А-Яа-я-]+$',
+    r'^[А-Яа-я-]+\s*губа$',
+    r'^губа\s+[А-Яа-я-]+$',
+)
 
 class WaterObject(object):
 
@@ -39,6 +46,7 @@ class WaterObject(object):
     _lost_patterns = [re.compile(p) for p in _lost]
     _nameless_pattern = re.compile(r'без названия')
     _lake_patterns = [re.compile(p) for p in _lake_signs]
+    _sea_patterns = [re.compile(s) for s in _sea_signs]
 
     def __init__(self, _name,
                  length=0, dest_from_end=0, ten_km_trib_amount=0.0,
@@ -78,6 +86,10 @@ class WaterObject(object):
     @property
     def is_lake(self):
         return any(l.search(n) for l in self._lake_patterns for n in self.names)
+
+    @property
+    def is_sea(self):
+        return any(s.search(n) for s in self._sea_patterns for n in self.names)
 
     def __str__(self):
         if self.nameless:
@@ -202,7 +214,7 @@ class RiverSystems(object):
 
         # Some large lakes and reservoirs are described like a distinct bassins
         # while in fact they are part of large river system
-        self.lake_tributaries = fixtures.get("fake_roots", {}) if \
+        self.fake_roots = fixtures.get("fake_roots", {}) if \
             fixtures else {}
 
     def __len__(self):
@@ -225,7 +237,7 @@ class RiverSystems(object):
         # Sometimes we can get faked roots (lakes or reservoirs)
         # so we need to check the fixtures first
         fake_root_conditions = (
-            root.name in self.lake_tributaries,
+            root.name in self.fake_roots,
             not any(root in stack for stack in self.roots.values())
         )
         real_root_conditions = (
@@ -276,7 +288,7 @@ root? [y/n]""".format(river, dest)
 
     def _add_fake_root(self, root):
         print("Fake root detected: {}".format(root))
-        fake_root_info = self.lake_tributaries[root]
+        fake_root_info = self.fake_roots[root]
         dest = WaterObject(fake_root_info["dest"])
         root.ten_km_trib_amount = fake_root_info["ten_km_trib_amount"]
         root.dest_from_end = fake_root_info["dest_from_end"]
