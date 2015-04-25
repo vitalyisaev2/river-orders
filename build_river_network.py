@@ -1,12 +1,12 @@
 #!/usr/bin/python3
 # -*- coding: utf8 -*-
 
-import os
 import sys
-import re
-import itertools
 import traceback
 import argparse
+import logging
+from itertools import chain
+from datetime import datetime
 
 import pandas as pd
 import numpy as np
@@ -58,7 +58,7 @@ def prepare(df):
 
 
 def construct(df, **kwargs):
-    rs = RiverSystems(**kwargs)
+    rss = RiverSystems(**kwargs)
 
     for index, r in df.iterrows():
         volume = index[0]
@@ -67,15 +67,16 @@ def construct(df, **kwargs):
         river = WaterObject(_name=r.river_full_name, volume=volume, index=index[1], **r)
         dest = WaterObject(_name=r.river_dest)
         try:
-            rs.add_river(river, dest)
+            rss.add_river(river, dest)
         except Exception:
             print(traceback.format_exc())
-            print(rs)
+            print(rss)
             sys.exit(1)
         else:
-            print(index[1], *rs.active_system)
+            message = " ".join(str(m) for m in chain(index, rss.active_system))
+            logging.debug(message)
 
-    return rs
+    return rss
 
 
 def parse_options():
@@ -83,12 +84,20 @@ def parse_options():
     parser.add_argument("datafile", help="CSV file with initial data",
                         type=str)
     parser.add_argument("-f", "--fixture", help="List of fixtures", type=str)
+    parser.add_argument("-N", "--node", help="Name of node to draw separate network from", type=str)
     args = parser.parse_args()
     return args
 
 
 def main():
+    # Prepare data
     options = parse_options()
+
+    # Set logger
+    prefix = options.datafile.split(".")[0]
+    tstamp = datetime.now().strftime("%Y%m%d-%H:%M")
+    fname = prefix + "-" + tstamp + ".log"
+    logging.basicConfig(filename=fname, level=logging.DEBUG)
 
     # main data
     df = prepare(pd.read_csv(options.datafile, sep=";"))
@@ -100,16 +109,19 @@ def main():
     else:
         fixtures = None
 
-    rs = construct(df, fixtures=fixtures)
-
+    # Build multiple river systems from initial data
+    rss = construct(df, fixtures=fixtures)
     if __debug__:
-        global _df, _rs
+        global _df, _rss
         _df = df
-        _rs = rs
+        _rss = rss
+        print(rss)
 
-    print("Current river systems: ")
-    print(rs)
-    rs.draw()
+    # Draw selected part of river_network. If nothing selected, draw everything
+    if options.node:
+        rss.render(options.node)
+    else:
+        rss.render()
 
 
 if __name__ == "__main__":

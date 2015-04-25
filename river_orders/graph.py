@@ -21,9 +21,16 @@ class GraphvizNode(namedtuple("GraphvizNode",
 
     @staticmethod
     def from_digraph_node(DG, name):
-        return GraphvizNode(name=name,
-                            ten_km_trib_amount=DG.node[name]["ten_km_trib_amount"],
-                            order=DG.node[name]["order"])
+        gn = None
+        try:
+            gn = GraphvizNode(name=name,
+                              ten_km_trib_amount=DG.node[name]["ten_km_trib_amount"],
+                              order=DG.node[name]["order"])
+        except Exception as e:
+            print("Error while handling node '{}'".format(name), e)
+            sys.exit(1)
+        else:
+            return gn
 
 
 class DirectedGraph(object):
@@ -259,6 +266,24 @@ class DirectedGraph(object):
         finally:
             # Save to file
             fname = '{}'.format(self.root.name + ".dot")
+            path = os.path.join(os.path.dirname(sys.argv[0]), "pictures", fname)
+            print("\tSaving to {}...".format(path))
+            self.dot.save(path)
+
+    def draw_from_node(self, node_name):
+        self.check_graph()
+
+        # Draw graph from the river of the highest order
+        print("\tRendering...")
+        self.dot.node(node_name)
+        try:
+            self._render_bassin(node_name)
+        except Exception:
+            # Graph cycles cause endless recursion
+            traceback.format_exc()
+        finally:
+            # Save to file
+            fname = '{}'.format(node_name + ".dot")
             path = os.path.join(os.path.dirname(sys.argv[0]), "pictures", fname)
             print("\tSaving to {}...".format(path))
             self.dot.save(path)

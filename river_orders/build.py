@@ -1,8 +1,7 @@
 #! -*- coding: utf8 -*-
-import sys
 import re
 import pprint
-import traceback
+import logging
 from itertools import chain
 from collections import OrderedDict
 from distutils.util import strtobool
@@ -36,6 +35,7 @@ _sea_signs = (
     r'^губа\s+[А-Яа-я-]+$',
 )
 
+
 class WaterObject(object):
 
     """
@@ -64,7 +64,7 @@ class WaterObject(object):
         if index and volume:
             self.indexed_name = '{} №{}'.format(self.main_name, index)
             self.names.append(self.indexed_name)
-            self.volume_indexed_name = '{} {}/{}'.format(self.main_name, volume, index)
+            self.volume_indexed_name = '{} {}_{}'.format(self.main_name, volume, index)
         else:
             self.indexed_name = self.volume_indexed_name = self.main_name
 
@@ -185,10 +185,8 @@ class RiverStack(DirectedGraph):
     def find_similar(self, dest):
         for name in self.ns.suggest(dest):
             exists = name in self.river_names
-            # print(
-            #     "\t'{}' <-> '{}'; exists in '{}': {}".format(name, dest, self.river_names, exists))
             if exists:
-                print("\tSuggesting '{}' instead of '{}'".format(name, dest))
+                logging.debug("\tSuggesting '{}' instead of '{}'".format(name, dest))
                 return name
 
 
@@ -281,13 +279,13 @@ root? [y/n]""".format(river, dest)
 
     def _create_root(self, root):
         # All fences are passed: that's really new river system
-        print("Creating new root for '{}'...".format(root))
+        logging.debug("Creating new root for '{}'...".format(root))
         self.roots[root] = RiverStack(root)
         self.active_root = root
         self.roots[root].push(root)
 
     def _add_fake_root(self, root):
-        print("Fake root detected: {}".format(root))
+        logging.debug("Fake root detected: {}".format(root))
         fake_root_info = self.fake_roots[root]
         dest = WaterObject(fake_root_info["dest"])
         root.ten_km_trib_amount = fake_root_info["ten_km_trib_amount"]
@@ -295,7 +293,7 @@ root? [y/n]""".format(river, dest)
         self._add_tributary(root, dest)
 
     def _add_tributary(self, river, dest):
-        print("Adding tributary '{river}' for dest '{dest}'".format(**locals()))
+        logging.debug("Adding tributary '{river}' for dest '{dest}'".format(**locals()))
         self.active_root = None
         target_stack = None
 
@@ -329,15 +327,22 @@ root? [y/n]""".format(river, dest)
         return self.active_root, self.roots[self.active_root]
 
     def _river_exists(self, river):
-        return any(river in stack for _, stack in self.roots.items())
+        return any(river in stack for stack in self.roots.values())
 
-    def draw(self):
-        for root, rs in self.roots.items():
-            print("Rendering {} bassin".format(root))
-            try:
+    def get_river_system_by_element(self, water_object_name):
+        return next((root, stack) for root, stack in self.roots.items() if
+                    len(stack.DG.node[water_object_name]) != 0)
+
+    def render(self, water_object_name=None):
+        if water_object_name:
+            root, rs = self.get_river_system_by_element(water_object_name)
+            if rs:
+                rs.order()
+                rs.draw_from_node(water_object_name)
+            else:
+                print("Node {} hasn't been found anywhere".format(water_object_name))
+        else:
+            for root, rs in self.roots.items():
+                print("Rendering {} bassin".format(root))
                 rs.order()
                 rs.draw()
-            except Exception:
-                print("Error occured while rendering {} bassin...".format(root))
-                traceback.print_exc()
-                sys.exit(1)

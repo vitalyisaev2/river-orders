@@ -79,10 +79,6 @@ fake_roots:
         dest: Карское море
         dest_from_end: 0
         ten_km_trib_amount: 10
-    Иртыш:
-        dest: Обь
-        dest_from_end: 1162
-        ten_km_trib_amount: 487
     оз. Телецкое:
         dest: Бия
         dest_from_end: 301
