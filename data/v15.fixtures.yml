@@ -1,0 +1,109 @@
+hanging_roots:
+    - Карское море
+    - Юртым-Юган
+    - оз. Ярро-То 2-е
+    - оз. Ярро-То 1-е
+    - оз. Ней-To (оз. Ней-To, Мал-То)
+    - оз. Ней-To 1-е
+    - оз. Верх. Чортово
+    - оз. Есан-То 2-е
+    - оз. Есан-То 3-е
+    - Каба (Хаба)
+    - оз. Поль-То 3-е
+fake_roots:
+    Обская губа:
+        dest: Карское море
+        dest_from_end: 0
+        ten_km_trib_amount: 262
+    Шурышкарский Сор:
+        dest: Горная Обь
+        dest_from_end: 1
+        ten_km_trib_amount: 14
+    залив Вардроперский Сор:
+        dest: Обская губа
+        dest_from_end: 0
+        ten_km_trib_amount: 0
+    Байдарацкая губа:
+        dest: Карское море
+        dest_from_end: 0
+        ten_km_trib_amount: 77
+    залив Торасовей:
+        dest: Карское море
+        dest_from_end: 0
+        ten_km_trib_amount: 17
+    залив Шарапов Шар:
+        dest: Карское море
+        dest_from_end: 0
+        ten_km_trib_amount: 8
+    губа Крузенштерна:
+        dest: залив Шарапов Шар
+        dest_from_end: 0
+        ten_km_trib_amount: 8
+    залив Лыхи-Паха:
+        dest: Карское море
+        dest_from_end: 0
+        ten_km_trib_amount: 0
+    залив Мутный:
+        dest: Карское море
+        dest_from_end: 0
+        ten_km_trib_amount: 9
+    залив Вэбарка-Паха:
+        dest: Карское море
+        dest_from_end: 0
+        ten_km_trib_amount: 19
+    пролив Малыгина:
+        dest: Карское море
+        dest_from_end: 0
+        ten_km_trib_amount: 34
+    залив Холе-Паха:
+        dest: Карское море
+        dest_from_end: 0
+        ten_km_trib_amount: 0
+    бухта Находка:
+        dest: Обская губа
+        dest_from_end: 0
+        ten_km_trib_amount: 0
+    Тазовская губа:
+        dest: Обская губа
+        dest_from_end: 0
+        ten_km_trib_amount: 53
+    Гыданский залив:
+        dest: Карское море
+        dest_from_end: 0
+        ten_km_trib_amount: 162
+    оз. Периптаве-То:
+        dest: Периптаве-Яха
+        dest_from_end: 10
+        ten_km_trib_amount: 0
+    Юрацкая губа:
+        dest: Карское море
+        dest_from_end: 0
+        ten_km_trib_amount: 10
+    Иртыш:
+        dest: Обь
+        dest_from_end: 1162
+        ten_km_trib_amount: 487
+    оз. Телецкое:
+        dest: Бия
+        dest_from_end: 301
+        ten_km_trib_amount: 115
+    вдхр. Бухтарминское:
+        dest: Иртыш
+        dest_from_end: 3162
+        ten_km_trib_amount: 228
+    вдхр. Усть-Каменогорское:
+        dest: Иртыш
+        dest_from_end: 3091
+        ten_km_trib_amount: 53
+    вдхр. Верх. Ульбинское:
+        dest: Мал. Ульба
+        dest_from_end: 113
+        ten_km_trib_amount: 0
+    Каба:
+        dest: Черный Иртыш
+        dest_from_end: 3760
+        ten_km_trib_amount: 0
+    Новосибирское вдхр.:
+        dest: Обь
+        dest_from_end: 2967
+        ten_km_trib_amount: 0
