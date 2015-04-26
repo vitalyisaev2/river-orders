@@ -7,6 +7,7 @@ from collections import OrderedDict
 from distutils.util import strtobool
 
 from numpy import isnan
+import pandas
 
 from .naming import NameSuggestion
 from .graph import DirectedGraph
@@ -59,6 +60,8 @@ class WaterObject(object):
         self.length = length
         self.dest_from_end = dest_from_end
         self.ten_km_trib_amount = ten_km_trib_amount if not isnan(ten_km_trib_amount) else 0.0
+        self.volume = volume
+        self.index = index
 
         self.main_name = self.names[0] if self.multiname else _name
         if index and volume:
@@ -346,3 +349,12 @@ root? [y/n]""".format(river, dest)
                 print("Rendering {} bassin".format(root))
                 rs.order()
                 rs.draw()
+
+    def dump(self, session_name):
+        print("Concatenating results...")
+        #df = pandas.DataFrame(list(chain(rs.results for rs in self.roots.values())))
+
+        df = pandas.concat((pandas.DataFrame(rs.results) for rs in self.roots.values() if len(rs.results) > 0))
+        fname = session_name + ".result.csv"
+        print("Resulting DataFrame is {}. Dumping to {}...".format(df.shape, fname))
+        df.to_csv(fname, sep=";")

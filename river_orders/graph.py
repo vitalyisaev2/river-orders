@@ -4,6 +4,7 @@ import traceback
 from itertools import tee, chain
 from collections import namedtuple
 
+from pandas import Series
 from numpy import isnan, log2
 import networkx
 import graphviz
@@ -47,6 +48,7 @@ class DirectedGraph(object):
         self.root = root
         self.dot = graphviz.Digraph(format='svg')
         self.DG = networkx.DiGraph()
+        self.results = []
 
     def add_node(self):
         # TODO: the fact that we cannot use river as a node
@@ -57,11 +59,14 @@ class DirectedGraph(object):
             last_node_name = self.last_river.volume_indexed_name
 
         self.DG.add_node(last_node_name,
+                         name=self.last_river.name,
                          length=self.last_river.length,
                          dest_from_end=self.last_river.dest_from_end,
                          ten_km_trib_amount=self.last_river.ten_km_trib_amount,
                          is_lake=self.last_river.is_lake,
-                         is_sea=self.last_river.is_sea)
+                         is_sea=self.last_river.is_sea,
+                         volume=self.last_river.volume,
+                         index=self.last_river.index)
 
         if len(self) > 1:
             if self.last_river.is_lake or self.last_river.is_sea:
@@ -103,7 +108,7 @@ class DirectedGraph(object):
         else:
             self._sum_small_tribs(self.root.volume_indexed_name)
 
-    def gen_confluenced(self, trib_prev, trib_next):
+    def gen_confluenced(self, trib_prev, trib_next, dest):
         next(trib_next, None)
         pair_list = reversed(list(zip(trib_prev, trib_next)))
         confluenced = []
@@ -117,12 +122,15 @@ class DirectedGraph(object):
                 last_confluence = confluenced[-1]
                 income = t1
 
+            income_attrs = self.DG.node[income]
+            dest_attrs = self.DG.node[dest]
+
             if len(confluenced) == 1:
                 pass
 
             name = t1 + "__" + t2
             ten_km_trib_amount = last_confluence.ten_km_trib_amount + \
-                self.DG.node[income]["ten_km_trib_amount"]
+                income_attrs["ten_km_trib_amount"]
             order = scheidegger(ten_km_trib_amount)
 
             # if __debug__:
@@ -132,7 +140,24 @@ class DirectedGraph(object):
             #         ten_km_trib_amount, order)
             #     print(msg)
 
+            result = Series({
+                "bassin": self.root.name,
+                "src": income_attrs["name"],
+                "src_volume": income_attrs["volume"],
+                "src_index": income_attrs["index"],
+                "src_10km_tribs": income_attrs["ten_km_trib_amount"],
+                "src_order": income_attrs["order"],
+                "dst": dest_attrs["name"],
+                "dst_volume": dest_attrs["volume"],
+                "dst_index": dest_attrs["index"],
+                "dst_10km_tribs": ten_km_trib_amount,
+                "dst_order": order,
+            })
+
             confluenced.append(GraphvizNode(name, ten_km_trib_amount, order))
+
+            # Now need to store results
+            self.results.append(result)
 
         return confluenced
 
@@ -140,7 +165,7 @@ class DirectedGraph(object):
         trib, trib_prev, trib_next = tee(tributaries, 3)
 
         # Make list of `confluence nodes`
-        confluenced = list(self.gen_confluenced(trib_prev, trib_next))
+        confluenced = list(self.gen_confluenced(trib_prev, trib_next, river_node_name))
         confluenced.reverse()
 
         # Create common nodes
@@ -260,9 +285,10 @@ class DirectedGraph(object):
                 self._render_bassin(self.root.name)
             else:
                 self._render_bassin(self.root.volume_indexed_name)
-        except RuntimeError:
+        except Exception:
             # Graph cycles cause endless recursion
             traceback.format_exc()
+            sys.exit(1)
         finally:
             # Save to file
             fname = '{}'.format(self.root.name + ".dot")

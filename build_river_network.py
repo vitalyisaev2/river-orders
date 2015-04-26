@@ -111,11 +111,12 @@ def main():
 
     # Build multiple river systems from initial data
     rss = construct(df, fixtures=fixtures)
+
     if __debug__:
         global _df, _rss
         _df = df
         _rss = rss
-        print(rss)
+        # print(rss)
 
     # Draw selected part of river_network. If nothing selected, draw everything
     if options.node:
@@ -123,6 +124,7 @@ def main():
     else:
         rss.render()
 
+    rss.dump(session_name=prefix)
 
 if __name__ == "__main__":
     main()
