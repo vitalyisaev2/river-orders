@@ -11,7 +11,7 @@ $ docker run --privileged -it --rm -v `pwd`:/home/hydrologist/project:ro river-o
 ``` 
 When you're inside the container, start the session:
 ```sh
-hydrologist@35922fe8329b:~/project$ python3 build_river_network.py data/v15.csv --fixtures data/v15.fixtures.yml --node "Обь 15-3_1"
+$ python3 build_river_network.py data/v15.csv --fixture data/v15.fixtures.yml --node "Обь 15-3_1" --dump
 ```
 
 #### Examples
