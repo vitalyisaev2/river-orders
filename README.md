@@ -9,14 +9,13 @@ $ cd river-orders
 $ docker build --tag=river-orders ./docker
 $ docker run --privileged -it --rm -v `pwd`:/home/hydrologist/project:ro river-orders bash
 ``` 
-When you're inside the container, start ipython session:
+When you're inside the container, start the session:
 ```sh
-hydrologist@35922fe8329b:~/project$ ipython
-In [1]: %run build_river_network.py data/example.long.csv -f data/example.long.fixture
+$ python3 build_river_network.py data/v15.csv --fixture data/v15.fixtures.yml --node "Обь 15-3_1" --dump
 ```
 
 #### Examples
-Upstream Ob river bassin:
+The Ob river bassin:
 ![](http://s019.radikal.ru/i600/1504/6b/be24302c3f2a.png)
-![](http://s017.radikal.ru/i427/1504/b2/d67377b8759a.jpg)
+![](http://s56.radikal.ru/i151/1504/3c/c652cf2498b3.jpg)
 
