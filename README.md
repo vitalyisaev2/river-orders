@@ -9,10 +9,9 @@ $ cd river-orders
 $ docker build --tag=river-orders ./docker
 $ docker run --privileged -it --rm -v `pwd`:/home/hydrologist/project:ro river-orders bash
 ``` 
-When you're inside the container, start ipython session:
+When you're inside the container, start the session:
 ```sh
-hydrologist@35922fe8329b:~/project$ ipython
-In [1]: %run build_river_network.py data/example.long.csv -f data/example.long.fixture
+hydrologist@35922fe8329b:~/project$ python3 build_river_network.py data/v15.csv --fixtures data/v15.fixtures.yml --node "Обь 15-3_1"
 ```
 
 #### Examples
