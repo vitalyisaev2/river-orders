@@ -2,3 +2,5 @@ graphviz
 numpy
 pandas
 networkx
+yaml
+ipython
