@@ -1,0 +1,13 @@
+Source: river-orders
+Maintainer: Vitaly Isaev <vitalyisaev2@gmail.com>
+Section: python
+Priority: optional
+Build-Depends: python3-setuptools, python3-all, debhelper (>= 9)
+Standards-Version: 3.9.1
+
+Package: python3-river-orders
+Architecture: all
+Depends: ${misc:Depends}, ${python3:Depends}
+Description: Tool for building river network graph
+ Simple tool for building river network graph from data
+ published in USSR Surface water resources
